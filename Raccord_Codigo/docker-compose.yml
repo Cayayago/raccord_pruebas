@@ -1,0 +1,148 @@
+# ==========================================
+# RACCORD - stack completo (db + backend + frontend)
+# ==========================================
+# Un solo comando levanta todo:
+#
+#   docker compose up -d --build
+#
+# IMPORTANTE (una sola vez, antes del primer "docker compose up"):
+# ya tienes "postgres-db" y "adminer" corriendo como contenedores
+# sueltos (creados con "docker run"). Compose va a crear contenedores
+# nuevos con esos mismos nombres apuntando al MISMO volumen de datos,
+# así que hay que quitar los sueltos primero para que no choquen:
+#
+#   docker rm -f postgres-db adminer
+#
+# El volumen de datos (postgres_data, abajo) NO se toca con ese
+# comando - solo se borran los contenedores, los datos siguen intactos
+# en el volumen.
+
+services:
+  db:
+    image: postgres
+    container_name: postgres-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: carlos.yaya
+      POSTGRES_PASSWORD: "CAMBIAR_POR_TU_CLAVE"
+      POSTGRES_DB: raccord
+    ports:
+      - "5432:5432"
+    volumes:
+      # Mismo volumen que ya usa tu contenedor postgres-db actual
+      # (visto con "docker inspect postgres-db"). Como ya tiene datos,
+      # Postgres arranca usándolos tal cual - las variables de arriba
+      # solo aplican si el volumen estuviera vacío.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carlos.yaya -d raccord"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer
+    container_name: adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+  # Almacén de objetos S3-compatible para los binarios que antes vivían
+  # como BYTEA en Postgres (PDFs de guiones, fotos de continuidad).
+  # Dos buckets: "guiones" y "imagenes" — se crean solos al arrancar el
+  # backend (ver app/utils/minio_client.py), no hace falta crearlos a
+  # mano. Consola web en el puerto 9001 para revisar los archivos.
+  minio:
+    image: minio/minio
+    container_name: raccord-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-raccord_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-CAMBIAR_CLAVE_MINIO}
+    ports:
+      - "9000:9000"   # API S3
+      - "9001:9001"   # Consola web
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./raccord_backend/api_usuarios
+    container_name: raccord-backend
+    restart: unless-stopped
+    env_file:
+      - ./raccord_backend/api_usuarios/.env
+    environment:
+      # Dentro de la red de docker compose, el host de la BD y de MinIO
+      # es el nombre del servicio ("db" / "minio"), no localhost. Todo
+      # lo demás (usuario, contraseña, SECRET_KEY, correo, etc.) sale
+      # del .env.
+      DB_HOST: db
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-raccord_admin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-CAMBIAR_CLAVE_MINIO}
+      MINIO_SECURE: "false"
+      # Para que las URLs prefirmadas que se generan (para ver/descargar
+      # PDFs y fotos) apunten a algo que el navegador del usuario pueda
+      # resolver, no al nombre interno "minio" que solo existe dentro de
+      # la red de docker compose.
+      MINIO_PUBLIC_ENDPOINT: localhost:9000
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./raccord_flutter
+    container_name: raccord-frontend
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+
+  # Landing page de marketing (HTML/CSS/JS plano, no Flutter ni
+  # React/Vite — ver decisión en README). Independiente del resto:
+  # nginx sirviendo estático, sin depender de que el backend esté listo
+  # para construirse/arrancar (solo lo necesita en runtime, cuando
+  # alguien envía el formulario de contacto).
+  landing:
+    build:
+      context: ./Landing_pages
+      args:
+        # En "localhost" el CORS del backend ya acepta cualquier puerto
+        # (ver allow_origin_regex en app/main.py), así que esto solo
+        # hace falta cambiarlo al desplegar en un dominio real:
+        #   docker compose build landing --build-arg API_BASE_URL=https://api.tu-dominio.com
+        API_BASE_URL: http://127.0.0.1:8000
+        # A dónde lleva el botón "Ingresar" del navbar (-> /login). En
+        # local apunta al puerto donde publica el servicio "frontend"
+        # de abajo (8081); en producción, la URL real de la app.
+        APP_URL: http://localhost:8081
+    container_name: raccord-landing
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+
+volumes:
+  postgres_data:
+    external: true
+    # Nombre real del volumen que ya tiene tus datos (visto con
+    # "docker inspect postgres-db"). "external: true" le dice a
+    # compose que NO cree un volumen nuevo, que use este que ya existe.
+    name: afbf8ec9e0032afaa85fa6ec45ae734bbafde776efede1686bcdbc21addaf709
+  minio_data:
+    # Este sí lo crea compose solo (no existía antes), no necesita
+    # "external: true".

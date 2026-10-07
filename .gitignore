@@ -1,0 +1,13 @@
+.env
+build/
+.dart_tool/
+node_modules/
+*.zip
+__pycache__/
+target/
+ephemeral/
+.gradle/
+.idea/
+local.properties
+*.iml
+.flutter-plugins-dependencies

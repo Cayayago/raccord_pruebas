@@ -1,0 +1,40 @@
+# Índice de Historias de Usuario (HU) — Raccord
+
+- [HU-001: Auto-registro del primer administrador](HU-001_auto_registro_del_primer_administrador.md) — Crítica — RF-001
+- [HU-002: Registro de Usuarios Adicionales por Administrador Total](HU-002_registro_de_usuarios_adicionales_por_administrador_total.md) — Crítica — RF-002
+- [HU-003: Inicio de Sesión con Autenticación de Dos Factores](HU-003_inicio_de_sesion_con_autenticacion_de_dos_factores.md) — Crítica — RF-003
+- [HU-004: Sistema de Notificaciones por Email](HU-004_sistema_de_notificaciones_por_email.md) — Crítica — RF-004
+- [HU-005: Sistema de Roles y Permisos Granulares (RBAC)](HU-005_sistema_de_roles_y_permisos_granulares_rbac.md) — Crítica — RF-005
+- [HU-006: Política de Contraseñas Seguras](HU-006_politica_de_contrasenas_seguras.md) — Alta — RF-006
+- [HU-007: Recuperación de Contraseña](HU-007_recuperacion_de_contrasena.md) — Alta — RF-007
+- [HU-008: Gestión de Perfil de Usuario](HU-008_gestion_de_perfil_de_usuario.md) — Media — RF-008
+- [HU-009: Log de Auditoría de Accesos y Acciones](HU-009_log_de_auditoria_de_accesos_y_acciones.md) — Alta — RF-009
+- [HU-010: Carga de Fotografías](HU-010_carga_de_fotografias.md) — Crítica — RF-010
+- [HU-011: Historial y versionado de fotografías](HU-011_historial_y_versionado_de_fotografias.md) — Alta — RF-011
+- [HU-012: Búsqueda Avanzada por Filtros](HU-012_busqueda_avanzada_por_filtros.md) — Crítica — RF-012
+- [HU-013: Comparación Visual Lado a Lado](HU-013_comparacion_visual_lado_a_lado.md) — Alta — RF-013
+- [HU-014: Gestión de Estados de Continuidad](HU-014_gestion_de_estados_de_continuidad.md) — Alta — RF-014
+- [HU-015: Marca de Agua Dinámica No Removible](HU-015_marca_de_agua_dinamica_no_removible.md) — Crítica — RF-015
+- [HU-016: Eliminación Lógica de Fotografías (Papelera)](HU-016_eliminacion_logica_de_fotografias_papelera.md) — Media — RF-016
+- [HU-017: Creación de Proyectos](HU-017_creacion_de_proyectos.md) — Crítica — RF-017
+- [HU-018: Creación de Eventos en Calendario de Rodaje](HU-018_creacion_de_eventos_en_calendario_de_rodaje.md) — Crítica — RF-018
+- [HU-019: Modificación de Eventos de Calendario](HU-019_modificacion_de_eventos_de_calendario.md) — Crítica — RF-019
+- [HU-020: Gestión de Desgloses de Escenas](HU-020_gestion_de_desgloses_de_escenas.md) — Alta — RF-020
+- [HU-021: Notas Personales Privadas en Calendario](HU-021_notas_personales_privadas_en_calendario.md) — Baja — RF-021
+- [HU-022: Notificaciones Push Instantáneas de Cambios de Calendario](HU-022_notificaciones_push_instantaneas_de_cambios_de_calendario.md) — Crítica — RF-022
+- [HU-023: Comunicación Interna por Canales Segmentados](HU-023_comunicacion_interna_por_canales_segmentados.md) — Media — RF-023
+- [HU-024: Comunicados Oficiales con Confirmación de Lectura Obligatoria](HU-024_comunicados_oficiales_con_confirmacion_de_lectura_obligatori.md) — Media — RF-024
+- [HU-025: Directorio de Equipo (Crew List)](HU-025_directorio_de_equipo_crew_list.md) — Baja — RF-025
+- [HU-026: Subida y Control de Versiones de Guion](HU-026_subida_y_control_de_versiones_de_guion.md) — Alta — RF-026
+- [HU-027: Visualización de Guion con Marca de Agua y Protección Avanzada](HU-027_visualizacion_de_guion_con_marca_de_agua_y_proteccion_avanza.md) — Crítica — RF-027
+- [HU-028: Anotaciones Colaborativas en Guion](HU-028_anotaciones_colaborativas_en_guion.md) — Alta — RF-028
+- [HU-029: Comparación de Versiones de Guion (Diff)](HU-029_comparacion_de_versiones_de_guion_diff.md) — Media — RF-029
+- [HU-030: Vinculación Automática Guion-Continuidad](HU-030_vinculacion_automatica_guion_continuidad.md) — Media — RF-030
+- [HU-031: Desglose Editable de Guion](HU-031_desglose_editable_de_guion.md) — Media — RF-031
+- [HU-032: Reporte de Preparación para Rodaje](HU-032_reporte_de_preparacion_para_rodaje.md) — Alta — RF-032
+- [HU-033: Informe de Continuidad por Escena](HU-033_informe_de_continuidad_por_escena.md) — Media — RF-033
+- [HU-034: Parte de Rodaje Diario Semi-Automático](HU-034_parte_de_rodaje_diario_semi_automatico.md) — Media — RF-034
+- [HU-035: Listado de Vestuario por Personaje](HU-035_listado_de_vestuario_por_personaje.md) — Media — RF-035
+- [HU-036: Checklist de Escenas Grabadas vs Pendientes](HU-036_checklist_de_escenas_grabadas_vs_pendientes.md) — Media — RF-036
+- [HU-037: Reporte de Auditoría de Accesos](HU-037_reporte_de_auditoria_de_accesos.md) — Alta — RF-037
+- [HU-038: Inventario de Recursos/Materiales](HU-038_inventario_de_recursos_materiales.md) — Baja — RF-038

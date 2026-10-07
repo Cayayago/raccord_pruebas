@@ -1,0 +1,35 @@
+# Índice de Requisitos No Funcionales (RNF) — Raccord
+
+- [RNF-001: Tiempo de Respuesta del Registro de Usuario](RNF-001_tiempo_de_respuesta_del_registro_de_usuario.md) — Rendimiento — Alta
+- [RNF-002: Tiempo de Respuesta del Login](RNF-002_tiempo_de_respuesta_del_login.md) — Rendimiento — Crítica
+- [RNF-003: Tiempo de Entrega de Notificaciones (2FA, Recuperación)](RNF-003_tiempo_de_entrega_de_notificaciones_2fa_recuperacion.md) — Rendimiento — Crítica
+- [RNF-004: Rate Limiting de Login (Protección Brute Force)](RNF-004_rate_limiting_de_login_proteccion_brute_force.md) — Seguridad — Crítica
+- [RNF-005: Complejidad de Contraseña (Validación Inmediata)](RNF-005_complejidad_de_contrasena_validacion_inmediata.md) — Seguridad / Usabilidad — Media
+- [RNF-006: Tiempo de Carga de Fotografías en Visualización](RNF-006_tiempo_de_carga_de_fotografias_en_visualizacion.md) — Rendimiento — Crítica
+- [RNF-007: Tiempo de Subida de Fotografías](RNF-007_tiempo_de_subida_de_fotografias.md) — Rendimiento — Crítica
+- [RNF-008: Tiempo de Respuesta en Búsqueda de Fotografías](RNF-008_tiempo_de_respuesta_en_busqueda_de_fotografias.md) — Rendimiento — Crítica
+- [RNF-009: Volumen Diario de Fotografías Soportado](RNF-009_volumen_diario_de_fotografias_soportado.md) — Rendimiento / Escalabilidad — Alta
+- [RNF-010: Tiempo de Creación de Evento en Calendario](RNF-010_tiempo_de_creacion_de_evento_en_calendario.md) — Rendimiento — Alta
+- [RNF-011: Tiempo de Entrega de Notificaciones Push de Calendario](RNF-011_tiempo_de_entrega_de_notificaciones_push_de_calendario.md) — Rendimiento / Funcionalidad — Crítica
+- [RNF-012: Confirmación de Lectura de Notificaciones](RNF-012_confirmacion_de_lectura_de_notificaciones.md) — Funcionalidad — Media
+- [RNF-013: Cifrado de Datos en Reposo](RNF-013_cifrado_de_datos_en_reposo.md) — Seguridad — Crítica
+- [RNF-014: Cifrado de Datos en Tránsito](RNF-014_cifrado_de_datos_en_transito.md) — Seguridad — Crítica
+- [RNF-015: Bloqueo de Capturas de Pantalla](RNF-015_bloqueo_de_capturas_de_pantalla.md) — Seguridad — Crítica
+- [RNF-016: Registro Completo de Auditoría](RNF-016_registro_completo_de_auditoria.md) — Seguridad / Trazabilidad — Alta
+- [RNF-017: Política de Sesiones](RNF-017_politica_de_sesiones.md) — Seguridad — Alta
+- [RNF-018: Marca de Agua Personalizada e Irreemplazable](RNF-018_marca_de_agua_personalizada_e_irreemplazable.md) — Seguridad / Funcionalidad — Crítica
+- [RNF-019: Autenticación de Dos Factores Obligatoria](RNF-019_autenticacion_de_dos_factores_obligatoria.md) — Seguridad — Crítica
+- [RNF-020: Facilidad de Aprendizaje para Usuarios No Técnicos](RNF-020_facilidad_de_aprendizaje_para_usuarios_no_tecnicos.md) — Usabilidad — Alta
+- [RNF-021: Modo Oscuro para Uso en Set](RNF-021_modo_oscuro_para_uso_en_set.md) — Usabilidad / Accesibilidad — Alta
+- [RNF-022: Diseño Responsive Multiplataforma](RNF-022_diseno_responsive_multiplataforma.md) — Usabilidad / Compatibilidad — Crítica
+- [RNF-023: Idioma del Sistema](RNF-023_idioma_del_sistema.md) — Usabilidad / Localización — Media
+- [RNF-024: Disponibilidad del Sistema](RNF-024_disponibilidad_del_sistema.md) — Disponibilidad — Crítica
+- [RNF-025: Frecuencia de Backups](RNF-025_frecuencia_de_backups.md) — Confiabilidad — Crítica
+- [RNF-026: Tiempo de Recuperación ante Fallas (RTO)](RNF-026_tiempo_de_recuperacion_ante_fallas_rto.md) — Confiabilidad — Crítica
+- [RNF-027: Funcionamiento Offline con Sincronización Automática](RNF-027_funcionamiento_offline_con_sincronizacion_automatica.md) — Confiabilidad / Funcionalidad — Crítica
+- [RNF-028: Escalabilidad de Usuarios Concurrentes](RNF-028_escalabilidad_de_usuarios_concurrentes.md) — Escalabilidad — Alta
+- [RNF-029: Escalabilidad de Almacenamiento](RNF-029_escalabilidad_de_almacenamiento.md) — Escalabilidad — Alta
+- [RNF-030: Modularidad del Código](RNF-030_modularidad_del_codigo.md) — Mantenibilidad — Alta
+- [RNF-031: Documentación Técnica Completa](RNF-031_documentacion_tecnica_completa.md) — Mantenibilidad — Media
+- [RNF-032: Compatibilidad de la Página Web de Ingreso con Navegadores Modernos](RNF-032_compatibilidad_con_navegadores_modernos.md) — Compatibilidad — Media
+- [RNF-033: Sincronización entre Dispositivos del Usuario](RNF-033_sincronizacion_entre_dispositivos_del_usuario.md) — Compatibilidad / Funcionalidad — Media

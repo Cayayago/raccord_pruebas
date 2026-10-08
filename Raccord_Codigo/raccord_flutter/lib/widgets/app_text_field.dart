@@ -62,6 +62,9 @@ class AppTextField extends StatelessWidget {
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         const SizedBox(height: 8),
+        // Etiqueta accesible: Flutter Web dibuja en canvas y el label es un Text aparte;
+        // con Semantics las pruebas E2E (Playwright) pueden ubicar el campo por nombre.
+        Semantics(label: label, enabled: enabled, child:
         TextFormField(
           controller: controller,
           obscureText: obscureText,
@@ -74,6 +77,7 @@ class AppTextField extends StatelessWidget {
           inputFormatters: inputFormatters,
           textCapitalization: textCapitalization,
           decoration: InputDecoration(hintText: hint, suffixIcon: suffixIcon),
+        )
         ),
       ],
     );

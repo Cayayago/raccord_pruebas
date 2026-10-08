@@ -1,0 +1,6 @@
+[run]
+source = app
+omit =
+    # Archivos generados / sin lógica propia
+    app/__pycache__/*
+    app/assets/*

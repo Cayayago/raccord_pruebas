@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
@@ -18,6 +18,7 @@ from app.controllers.login_controller import (
 )
 
 from app.utils.rate_limit import rate_limit
+from app.utils.login_guard import client_ip
 from app.middleware.auth import get_current_user
 
 # ==========================================
@@ -36,10 +37,11 @@ router = APIRouter(
 @router.post("/login")
 def login(
     user: LoginSchema,
+    request: Request,
     db: Session = Depends(get_db),
     _rl=Depends(rate_limit("login", max_attempts=8, window_seconds=60)),
 ):
-    return login_user(user.mail, user.contrasena, db)
+    return login_user(user.mail, user.contrasena, db, client_ip(request))
 
 
 # LOGOUT
@@ -60,20 +62,22 @@ def logout(
 @router.post("/2fa/check")
 def check_2fa(
     data: TwoFactorSendSchema,
+    request: Request,
     db: Session = Depends(get_db),
     _rl=Depends(rate_limit("2fa-check", max_attempts=10, window_seconds=60)),
 ):
-    return check_2fa_required(data.mail, data.device_id, data.contrasena, db)
+    return check_2fa_required(data.mail, data.device_id, data.contrasena, db, client_ip(request))
 
 
 # 2FA - ENVIAR CODIGO
 @router.post("/2fa/send")
 def send_2fa(
     data: TwoFactorSendSchema,
+    request: Request,
     db: Session = Depends(get_db),
     _rl=Depends(rate_limit("2fa-send", max_attempts=5, window_seconds=300)),
 ):
-    return send_2fa_code(data.mail, data.device_id, data.contrasena, db)
+    return send_2fa_code(data.mail, data.device_id, data.contrasena, db, client_ip(request))
 
 
 # 2FA - VERIFICAR CODIGO
@@ -83,7 +87,8 @@ def send_2fa(
 @router.post("/2fa/verify")
 def verify_2fa(
     data: TwoFactorVerifySchema,
+    request: Request,
     db: Session = Depends(get_db),
     _rl=Depends(rate_limit("2fa-verify", max_attempts=8, window_seconds=300)),
 ):
-    return verify_2fa_code(data.mail, data.codigo, data.device_id, data.contrasena, db)
+    return verify_2fa_code(data.mail, data.codigo, data.device_id, data.contrasena, db, client_ip(request))

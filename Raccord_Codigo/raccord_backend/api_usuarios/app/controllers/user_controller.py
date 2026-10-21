@@ -1,5 +1,6 @@
 from fastapi import HTTPException, UploadFile
 from fastapi.responses import Response
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.user_model import User
@@ -54,6 +55,23 @@ def get_users(id_client: str, db: Session):
 # ==========================================
 # GET USER BY ID
 # ==========================================
+# ==========================================
+# DESBLOQUEAR CUENTA (RNF-004)
+# ==========================================
+# Reset por administrador del bloqueo por intentos fallidos de login
+# (ver app/utils/login_guard.py). La ruta ya exige permiso y misma
+# empresa; acá solo se resuelve el correo del usuario y se limpia.
+def unlock_user_login(id: str, db: Session):
+    from app.utils.login_guard import unblock_account
+
+    user = db.query(User).filter(User.id_user == id).first()
+    if not user:
+        return api_response(False, "Usuario no encontrado")
+
+    unblock_account(db, user.mail)
+    return api_response(True, "Cuenta desbloqueada: ya puede intentar iniciar sesión")
+
+
 def get_user(id: str, db: Session):
     user = db.query(User).filter(User.id_user == id).first()
 
@@ -217,7 +235,7 @@ def delete_user(id: str, db: Session, current_user: dict = None):
 # GET USERS BY PROJECT
 # ==========================================
 def get_users_by_project(id_project: str, db: Session):
-    user_projects = db.query(User, UserProject.id_rol).join(
+    user_projects = db.query(User, UserProject.id_rol, UserProject.estado).join(
         UserProject, User.id_user == UserProject.id_user
     ).filter(UserProject.id_project == id_project).all()
 
@@ -228,7 +246,8 @@ def get_users_by_project(id_project: str, db: Session):
             "apellido": user.apellido,
             "mail": user.mail,
             "msisdn": user.msisdn,
-            "estado": user.estado,
+            # Suspendido EN ESTE proyecto manda sobre el estado de la cuenta.
+            "estado": "suspendido" if estado_vinculo == "suspendido" else user.estado,
             # Faltaba: sin esto, "Roles del Equipo" nunca reflejaba el
             # departamento real del usuario (siempre salía "—" en el
             # frontend, sin importar lo que hubiera en la BD).
@@ -236,7 +255,7 @@ def get_users_by_project(id_project: str, db: Session):
             "id_rol": rol,
             "id_project": id_project
         }
-        for user, rol in user_projects
+        for user, rol, estado_vinculo in user_projects
     ]
     return api_response(True, "Usuarios del proyecto", users_list)
 
@@ -247,7 +266,22 @@ def get_users_by_project(id_project: str, db: Session):
 def get_user_projects(id_user: str, db: Session):
     projects = db.query(Project, UserProject.id_rol).join(
         UserProject, Project.id_project == UserProject.id_project
-    ).filter(UserProject.id_user == id_user).all()
+    ).filter(
+        UserProject.id_user == id_user,
+        # Los proyectos donde la persona está suspendida no le aparecen.
+        UserProject.estado != "suspendido",
+    ).all()
+
+    # Cantidad de personas vinculadas a cada proyecto (una sola consulta).
+    ids = [p.id_project for p, _ in projects]
+    conteos = {}
+    if ids:
+        conteos = dict(
+            db.query(UserProject.id_project, func.count(UserProject.id_user))
+            .filter(UserProject.id_project.in_(ids))
+            .group_by(UserProject.id_project)
+            .all()
+        )
 
     result = [
         {
@@ -257,6 +291,9 @@ def get_user_projects(id_user: str, db: Session):
             "genero": project.genero,
             "director": project.director,
             "id_client": project.id_client,
+            "estado": project.estado,
+            "causal_suspension": project.causal_suspension,
+            "total_usuarios": conteos.get(project.id_project, 0),
             "id_rol": rol
         }
         for project, rol in projects
@@ -340,7 +377,9 @@ def change_own_password(id_user: str, contrasena_actual: str, nueva_contrasena: 
 ESTADOS_PERMITIDOS = {"activo", "suspendido"}
 
 
-def set_user_estado(id_target: str, nuevo_estado: str, actor: dict, db: Session):
+def set_user_estado(id_target: str, nuevo_estado: str, actor: dict, db: Session, id_project: str = None):
+    from app.utils.project_scope import get_role_in_project  # import local: evita ciclos
+
     if nuevo_estado not in ESTADOS_PERMITIDOS:
         return api_response(False, "Estado inválido, debe ser 'activo' o 'suspendido'", error="INVALID_ESTADO")
 
@@ -359,7 +398,26 @@ def set_user_estado(id_target: str, nuevo_estado: str, actor: dict, db: Session)
     if target.id_user == actor_user.id_user:
         return api_response(False, "No puedes suspender ni reactivar tu propia cuenta", error="CANNOT_SELF_SUSPEND")
 
-    if actor_user.id_rol == JEFE_DEPARTAMENTO:
+    if not id_project:
+        return api_response(False, "Falta el proyecto sobre el que se suspende", error="MISSING_PROJECT")
+
+    # La suspensión es POR PROYECTO: se usa el rol que cada uno tiene en
+    # ESE proyecto (user_projects), no el rol global de la cuenta.
+    rol_actor = get_role_in_project(db, actor_user.id_user, id_project)
+    if rol_actor is None:
+        return api_response(False, "No perteneces a este proyecto", error="FORBIDDEN")
+    if not has_permission(rol_actor, "manage_team_status"):
+        return api_response(False, "No tienes permisos para realizar esta acción", error="FORBIDDEN")
+
+    vinculo = (
+        db.query(UserProject)
+        .filter(UserProject.id_user == target.id_user, UserProject.id_project == id_project)
+        .first()
+    )
+    if vinculo is None:
+        return api_response(False, "La persona no pertenece a este proyecto", error="NOT_IN_PROJECT")
+
+    if rol_actor == JEFE_DEPARTAMENTO:
         if not actor_user.id_departamento or target.id_departamento != actor_user.id_departamento:
             return api_response(
                 False,
@@ -369,14 +427,14 @@ def set_user_estado(id_target: str, nuevo_estado: str, actor: dict, db: Session)
 
     # Misma regla que borrar usuarios: Director no puede tocar a un
     # Administrador, solo otro Administrador puede.
-    if target.id_rol == ADMINISTRADOR and not has_permission(actor_user.id_rol, "delete_admin_users"):
+    if vinculo.id_rol == ADMINISTRADOR and not has_permission(rol_actor, "delete_admin_users"):
         return api_response(False, "No tienes permisos para gestionar a un usuario Administrador", error="FORBIDDEN")
 
-    target.estado = nuevo_estado
+    vinculo.estado = nuevo_estado
     db.commit()
 
     mensaje = "Usuario suspendido correctamente" if nuevo_estado == "suspendido" else "Usuario reactivado correctamente"
-    return api_response(True, mensaje, {"id_user": target.id_user, "estado": target.estado})
+    return api_response(True, mensaje, {"id_user": target.id_user, "id_project": id_project, "estado": vinculo.estado})
 
 
 # ==========================================

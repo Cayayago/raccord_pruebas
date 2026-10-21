@@ -1,8 +1,13 @@
 from passlib.context import CryptContext
 
+# RNF-013: bcrypt con 12 rondas fijadas explícitamente (antes dependía
+# del valor por defecto de la librería, que también es 12). Los hashes
+# ya guardados siguen verificando igual: la cantidad de rondas viaja
+# dentro de cada hash.
 pwd_context = CryptContext(
     schemes=["bcrypt"],
-    deprecated="auto"
+    deprecated="auto",
+    bcrypt__rounds=12,
 )
 
 

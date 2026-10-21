@@ -4,6 +4,7 @@ from app.config.database import get_db
 from app.controllers.gallery_photo_controller import (
     get_photos_by_scene,
     get_all_photos,
+    search_photos,
     get_papelera,
     upload_photo,
     get_photo_archivo,
@@ -54,6 +55,30 @@ def all_photos(id_project: str, db: Session = Depends(get_db), current_user: dic
     # app/utils/module_access.py) — no reemplaza el chequeo de arriba.
     check_module_view_access(db, current_user, id_project, "galeria", current_user.get("id_rol"))
     return get_all_photos(id_project, db)
+
+
+# Búsqueda avanzada paginada de fotos de UN proyecto (RNF-008/RF-012).
+# Mismos permisos que la Galería global.
+@router.get("/fotos/project/{id_project}/buscar")
+def search_project_photos(
+    id_project: str,
+    q: str | None = None,
+    tipo_foto: str | None = None,
+    personaje_codigo: str | None = None,
+    id_escena: str | None = None,
+    dia_dramatico: int | None = None,
+    desde: str | None = None,
+    hasta: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_project_member()),
+):
+    check_module_view_access(db, current_user, id_project, "galeria", current_user.get("id_rol"))
+    return search_photos(
+        id_project, db, q, tipo_foto, personaje_codigo, id_escena,
+        dia_dramatico, desde, hasta, page, page_size,
+    )
 
 
 # Subir foto: permiso "upload_photos" (Administrador, Director, Jefe

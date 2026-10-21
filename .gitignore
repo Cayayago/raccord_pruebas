@@ -15,3 +15,10 @@ Actas/
 Entregables/
 Otros Codigos/
 Pruebas/
+
+# Pruebas / cobertura
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+.pytest_cache/

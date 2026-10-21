@@ -1,0 +1,16 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--cov=app --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    # Sin lógica de negocio: scripts de operación manual, no se ejecutan en la app.
+    "app/utils/encrypt_existing_objects.py",
+]
+
+[tool.coverage.report]
+# Umbral de la Semana 2 (piso 30%). Se sube por PR de cierre a
+# max(30, cobertura real redondeada hacia abajo).
+fail_under = 30

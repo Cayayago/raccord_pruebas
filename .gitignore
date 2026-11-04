@@ -1,3 +1,12 @@
+venv/
+node_modules/
+__pycache__/
+.venv/
+*.pyc
+.env
+
+# Frontend anterior (React), en desuso — ya no se sube al repositorio.
+raccord_frontend/
 .env
 build/
 .dart_tool/
@@ -15,3 +24,14 @@ Actas/
 Entregables/
 Otros Codigos/
 Pruebas/
+
+# Documentacion privada: vive solo en Raccord-Original
+Docs/
+BD/
+Marketing/
+
+# Resultados de cobertura: se generan al correr las pruebas
+.coverage
+coverage/
+htmlcov/
+*.docx

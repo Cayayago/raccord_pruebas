@@ -1,0 +1,84 @@
+# ==========================================================
+# RACCORD — PRODUCCIÓN con HTTPS (RNF-014)
+# ==========================================================
+# Se usa ENCIMA del docker-compose.yml normal (no lo reemplaza):
+#
+#   cp .env.prod.example .env      # y completar los valores
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Qué cambia respecto a desarrollo:
+#   - Se agrega Caddy: HTTPS con certificados Let's Encrypt que se
+#     renuevan solos, TLS 1.3, redirección HTTP -> HTTPS y HSTS.
+#   - Ya NO se publican al exterior la base de datos, MinIO, el backend,
+#     el frontend ni la landing: solo Caddy (80/443). Todo lo demás queda
+#     en la red interna de Docker.
+#   - Adminer (panel de la BD) no arranca salvo que se pida a propósito:
+#       docker compose --profile debug ... up -d adminer
+#   - El frontend y la landing se compilan apuntando a https://API_DOMAIN.
+#
+# Requisitos: un servidor con IP pública, los 3 dominios apuntando a ella
+# (registros DNS tipo A) y los puertos 80 y 443 abiertos en el firewall.
+# Requiere Docker Compose v2.24 o superior (por "!reset").
+
+services:
+  caddy:
+    image: caddy:2
+    container_name: raccord-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?define ACME_EMAIL en el .env}
+      APP_DOMAIN: ${APP_DOMAIN:?define APP_DOMAIN en el .env}
+      API_DOMAIN: ${API_DOMAIN:?define API_DOMAIN en el .env}
+      LANDING_DOMAIN: ${LANDING_DOMAIN:?define LANDING_DOMAIN en el .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Aquí se guardan los certificados: NO borrar este volumen
+      # (Let's Encrypt limita cuántos certificados da por semana).
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+      - landing
+
+  db:
+    ports: !reset []
+
+  adminer:
+    profiles: ["debug"]
+    ports: !reset []
+
+  minio:
+    ports: !reset []
+
+  backend:
+    ports: !reset []
+    environment:
+      # Detrás de Caddy la IP real del cliente llega en X-Forwarded-For
+      # (la usa el bloqueo por IP de RNF-004).
+      TRUST_PROXY_HEADERS: "true"
+      ALLOWED_ORIGINS: https://${APP_DOMAIN},https://${LANDING_DOMAIN}
+      MINIO_PUBLIC_ENDPOINT: minio:9000
+
+  frontend:
+    ports: !reset []
+    build:
+      context: ./raccord_flutter
+      args:
+        API_BASE_URL: https://${API_DOMAIN}
+
+  landing:
+    ports: !reset []
+    build:
+      context: ./Landing_pages
+      args:
+        API_BASE_URL: https://${API_DOMAIN}
+        APP_URL: https://${APP_DOMAIN}
+
+volumes:
+  caddy_data:
+  caddy_config:

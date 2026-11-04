@@ -1,0 +1,49 @@
+# ==========================================================
+# RNF-014 — HTTPS / TLS 1.3 para PRODUCCIÓN (solo lo usa
+# docker-compose.prod.yml; en desarrollo no interviene)
+# ==========================================================
+# Caddy obtiene y RENUEVA solo los certificados de Let's Encrypt
+# (no hay que hacer nada antes del vencimiento) y redirige solo
+# todo HTTP (80) a HTTPS (443).
+#
+# Variables (vienen del .env de producción, ver .env.prod.example):
+#   ACME_EMAIL      correo para avisos de Let's Encrypt
+#   APP_DOMAIN      dominio de la app          (ej. app.raccord.co)
+#   API_DOMAIN      dominio de la API          (ej. api.raccord.co)
+#   LANDING_DOMAIN  dominio de la landing page (ej. raccord.co)
+{
+	email {$ACME_EMAIL}
+}
+
+# Cabeceras de seguridad comunes a todos los sitios.
+(seguridad) {
+	tls {
+		protocols tls1.3
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+{$APP_DOMAIN} {
+	import seguridad
+	reverse_proxy frontend:80
+}
+
+{$API_DOMAIN} {
+	import seguridad
+	# Las subidas de fotos llegan hasta 15 MB (ver gallery_photo_controller).
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy backend:8000
+}
+
+{$LANDING_DOMAIN} {
+	import seguridad
+	reverse_proxy landing:80
+}

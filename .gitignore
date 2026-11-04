@@ -1,0 +1,11 @@
+Docs/
+Entregables/
+Marketing/
+BD/
+Docs/
+Entregables/
+Marketing/
+Otros Codigos/
+*.bak
+**/.env
+raccord_offline.sql

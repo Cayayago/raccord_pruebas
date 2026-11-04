@@ -1,0 +1,120 @@
+name: raccord
+description: "Raccord — continuidad audiovisual para producciones. App multiplataforma (Android, iOS, Web, Desktop)."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  http: ^1.2.1
+  http_parser: ^4.0.2
+  shared_preferences: ^2.2.3
+  provider: ^6.1.2
+  # Bloquea screenshots/grabación de pantalla en Android e iOS nativos
+  # (FLAG_SECURE / API de iOS). En Web no tiene efecto real — ningún
+  # navegador expone esa capacidad — por eso en main.dart se activa
+  # solo cuando !kIsWeb (ver comentario ahí sobre la limitación).
+  #
+  # PAUSADO 2026-09-20 (temporal): no compila en Android con el
+  # "Built-in Kotlin" de Flutter 3.44+/AGP 9+ — bug confirmado, aún
+  # abierto en github.com/prongbang/screen_protector (issues #66, #67,
+  # #68, #70). Ver nota completa en lib/main.dart (_protegerPantalla).
+  # Reactivar cuando publiquen el fix.
+  # screen_protector: ^1.5.3
+  intl: ^0.19.0
+  uuid: ^4.4.0
+  # Selector de PDF (Android/iOS/Web/Desktop) para subir el guion.
+  # Subido de 8.1.2 a 13.x el 2026-09-20: la versión vieja no compila
+  # contra Android API 36 (requisito de flutter_plugin_android_lifecycle,
+  # dependencia transitiva) — bloqueaba compilar la app nativa. La API
+  # cambió de instancia (FilePicker.platform.pickFiles) a estática
+  # (FilePicker.pickFiles) desde la 11.0.0; los 6 usos en el código ya
+  # se actualizaron. También cambió el default de allowMultiple a
+  # true (antes false) — se agregó allowMultiple: false explícito en
+  # los 4 lugares que esperan un solo archivo.
+  file_picker: ^13.1.0
+  # Visor de PDF embebido en la app (open source, MIT) para abrir el
+  # guion sin salir de Raccord. Reemplaza a syncfusion_flutter_pdfviewer:
+  # ese visor daba "There was an error opening this document" en Web de
+  # forma intermitente y no había forma de diagnosticar la causa real.
+  # pdfrx usa pdfium (el mismo motor de Chrome) compilado a WASM, no
+  # necesita configuración extra en web/index.html.
+  pdfrx: ^2.4.7
+  # Guarda archivos ya descargados (bytes en memoria) en disco o
+  # dispara la descarga del navegador, según la plataforma (usado por
+  # el botón "Descargar" del guión, visible solo para roles con
+  # permiso `download_files`).
+  file_saver: ^0.4.0
+  # Lectura de archivos de "Carga masiva" (escenas, personajes,
+  # actores, roles): CSV y JSON (JSON usa dart:convert, sin dependencia
+  # adicional).
+  #
+  # NOTA: se evaluó soportar también .xlsx con el paquete "excel", pero
+  # choca de forma irresoluble con "pdfrx" (visor de PDF): "excel"
+  # exige archive ^3.x y "pdfrx_engine" exige archive ^4.x en TODAS sus
+  # versiones publicadas — no hay combinación de versiones de ninguno
+  # de los dos que resuelva. Como pdfrx ya reemplazó a Syncfusion por
+  # bugs reales de visualización, se prioriza mantenerlo y se deja la
+  # carga masiva en CSV/JSON. Para Excel, el usuario exporta su hoja a
+  # CSV antes de subirla ("Guardar como" → CSV, 2 clics en Excel/Sheets).
+  csv: ^8.0.0
+  # Tomar foto directo con la cámara (además de elegir de archivos) al
+  # subir fotos de continuidad en Escenas. En Web abre el selector nativo
+  # del navegador con opción de cámara en móvil; en Android/iOS abre la
+  # cámara del sistema. No choca con pdfrx/archive: sus paquetes
+  # (image_picker_android/ios/web/...) no dependen de "archive" ni "image".
+  image_picker: ^1.2.3
+  # Generación de PDF para TODAS las descargas de reportes (Desglose,
+  # Plan de Rodaje) — decisión explícita del usuario: nada de CSV/Excel,
+  # todo exportable debe salir en PDF. La versión >=3.11 de "pdf" pide
+  # archive ">=3.4.0 <4.1.0", que SÍ se solapa con el archive ^4.x que
+  # exige pdfrx_engine (el rango 4.0.x cae dentro de ambos), a diferencia
+  # del paquete "excel" que quedó descartado antes por pedir archive ^3.x
+  # sin solape posible.
+  pdf: ^3.13.0
+  # Banner global de "sin conexión" (ver widgets/offline_banner.dart):
+  # detecta en tiempo real si el dispositivo tiene Wi-Fi/datos móviles
+  # activos. NO verifica que haya Internet de verdad (podría haber
+  # Wi-Fi sin salida real) — solo avisa temprano del caso más común
+  # (radio apagado / modo avión) mientras cada pantalla sigue
+  # manejando sus propios errores de red como hasta ahora.
+  connectivity_plus: ^7.3.1
+  # Guarda fotos de continuidad DIRECTO en la Galería/Fotos del sistema
+  # (Android/iOS/macOS/Windows) — a diferencia de file_saver.saveAs()
+  # (que abre el selector "Guardar como" genérico de documentos, por
+  # eso las fotos terminaban en "Documentos" y no se veían reflejadas
+  # en la Galería del celular como cualquier otra foto descargada). Solo
+  # para fotos: los PDF (guion, reportes) siguen usando file_saver, que
+  # es lo correcto para documentos. No tiene dependencias propias más
+  # allá de Flutter, así que no choca con pdfrx/pdf/archive.
+  gal: ^2.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/images/logos/
+
+  fonts:
+    - family: Montserrat
+      fonts:
+        - asset: assets/fonts/Montserrat-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Montserrat-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Montserrat-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Montserrat-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Montserrat-ExtraBold.ttf
+          weight: 800

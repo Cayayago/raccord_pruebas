@@ -1,0 +1,2 @@
+ALTER TABLE actors
+    ADD COLUMN IF NOT EXISTS tono_piel VARCHAR(30);

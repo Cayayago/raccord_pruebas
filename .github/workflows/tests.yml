@@ -10,14 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: raccord_backend/api_usuarios
+        working-directory: Raccord_Codigo/raccord_backend/api_usuarios
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: raccord_backend/api_usuarios/requirements*.txt
+          cache-dependency-path: Raccord_Codigo/raccord_backend/api_usuarios/requirements*.txt
       - run: pip install -r requirements-dev.txt
       # pytest corre con cobertura y falla si baja del umbral (fail_under en pyproject.toml).
       - run: python -m pytest
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: raccord_flutter
+        working-directory: Raccord_Codigo/raccord_flutter
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2

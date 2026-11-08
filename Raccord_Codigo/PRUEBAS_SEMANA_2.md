@@ -18,7 +18,7 @@ flutter test --coverage
 
 No necesitan Docker, base de datos, MinIO ni red (FIRST): la BD se sustituye por SQLite en memoria o dobles, y el reloj se fija por parámetro o con `monkeypatch`.
 
-## Qué se prueba (backend: 378 tests, cobertura real 32,1 %)
+## Qué se prueba (backend: 419 tests + 2 hallazgos en xfail, cobertura real 35,4 %)
 
 | Unidad | Regla de negocio | Valores límite |
 |---|---|---|
@@ -34,10 +34,14 @@ No necesitan Docker, base de datos, MinIO ni red (FIRST): la BD se sustituye por
 | `controllers` (puras) | Suspensión exige causal y solo ahí; escape de `%`/`_` en búsquedas | — |
 | `utils/mail.py`, `watermark.py` | Escape HTML y saltos de línea; marca de agua con correo y fecha fija | — |
 | `models/*` | Relaciones y FKs se resuelven (detecta errores sin BD) | — |
+| `controllers/scene_character_controller.py` (Deiver) | Un personaje solo entra al reparto de escenas de su proyecto, sin duplicados | escena sin guion |
+| `controllers/gallery_photo_controller.py` (Deiver) | Solo JPEG/PNG/WEBP, no vacía, máximo 15 MB; borrar = papelera | 15 MB exactos vs +1 byte |
+| `controllers/module_access_controller.py` (Deiver) | Una excepción de acceso solo restringe | nivel igual al del rol |
+| Contrato momento del día (Deiver) | Parser, `SceneSchema` y ENUM de la BD deben aceptar los mismos valores — 2 hallazgos | `anochecer`, `dia/noche` |
 
 Frontend (Dart): `permissions.dart` (espejo de la matriz), `json_utils.dart`, `date_utils.dart`.
 
-## Mutación manual (8 mutantes, todos detectados)
+## Mutación manual (11 mutantes, todos detectados)
 
 | # | Mutante | Test que lo detecta |
 |---|---|---|
@@ -49,6 +53,9 @@ Frontend (Dart): `permissions.dart` (espejo de la matriz), `json_utils.dart`, `d
 | 6 | `project_controller`: `== "suspendido"` → `!=` | `test_suspendido_con_causal_es_valido` |
 | 7 | `permissions`: `get(permission, False)` → `True` | `test_has_permission_permiso_inexistente_se_niega` |
 | 8 | `script_parser`: `len(palabras) > 3` → `> 4` | `test_clean_character_name[A B C D-None]` |
+| 9 | `gallery_photo_controller`: `len(contenido) > MAX_FILE_SIZE_BYTES` → `>=` (Deiver) | `test_upload_photo_size_limit_is_15_mb[15728640-None]` |
+| 10 | `scene_character_controller`: quitar la regla de proyecto cruzado (Deiver) | `test_add_character_to_scene_rejects_character_from_another_project` |
+| 11 | `module_access_controller`: `NIVEL_RANGO[nivel] > …` → `>=` (Deiver) | `test_set_module_access_accepts_level_equal_to_role` |
 
 Para el PR, copiar 1–2 de estos (el que cada integrante haya probado) en la descripción.
 
@@ -57,12 +64,12 @@ Para el PR, copiar 1–2 de estos (el que cada integrante haya probado) en la de
 - Medida sobre **todo `app/`** (4 074 sentencias; los paquetes tienen `__init__.py` para que los archivos sin tests cuenten como 0 %).
 - Única exclusión: `app/utils/encrypt_existing_objects.py`, script de operación manual de una sola vez (sin lógica de negocio).
 - Controllers/routes que necesitan PostgreSQL siguen en 0 %: se cubren con pruebas de integración (semanas siguientes).
-- Umbral actual: **30** (`pyproject.toml`). Cierre de semana: PR que solo cambie `fail_under` a `max(30, floor(cobertura real))`.
+- Umbral actual: **35** (`pyproject.toml`), cobertura real 35,42 %. Cierre de semana: PR que solo cambie `fail_under` a `max(30, floor(cobertura real))`.
 - Frontend: `coverage_threshold.txt` = 30. `flutter test --coverage` solo cuenta archivos que algún test importa; al sumar tests de más archivos hay que revisar el valor.
 
 ## CI
 
-`github-workflows/tests.yml` → copiar a `.github/workflows/tests.yml` en la **raíz del repositorio git** (la carpeta `PROYECTO`). Jobs: `backend-fastapi`, `frontend-flutter`, `evidencia-individual`.
+`.github/workflows/tests.yml` (raíz del repo; rutas bajo `Raccord_Codigo/`). Jobs: `backend-fastapi`, `frontend-flutter`, `evidencia-individual`.
 
 Comprobar el rojo: subir `fail_under` a 99, push, confirmar ❌, devolver a 30 y confirmar ✅.
 

@@ -11,6 +11,8 @@ omit = [
 ]
 
 [tool.coverage.report]
-# Umbral de la Semana 2 (piso 30%). Se sube por PR de cierre a
-# max(30, cobertura real redondeada hacia abajo).
-fail_under = 30
+# Regla de trinquete: max(piso de la semana, cobertura real redondeada hacia abajo).
+# Semana 2: piso 30, real 35.42 % -> 35. Nunca bajar.
+# (El 48 % de la semana 1 estaba en pytest.ini y solo contaba los archivos que
+# importaba el único test; desde la semana 2 se mide TODO app/.)
+fail_under = 35

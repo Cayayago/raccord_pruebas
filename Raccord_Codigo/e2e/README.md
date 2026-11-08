@@ -30,5 +30,7 @@ Resultados: `playwright-report/` (HTML) y `results/junit.xml`.
 
 ## Notas
 - Corren en serie: el backend limita el login a 8 intentos/minuto por IP.
+- `tests/api/registro.spec.ts` crea cuentas reales (correos únicos con `Date.now()`) y el backend limita `POST /register` a 5 intentos cada 5 minutos por IP: si lo repites seguido, espera 5 minutos.
+- Un test marcado con `test.fail()` documenta un defecto conocido (hallazgo): pasa mientras el defecto exista y avisa cuando se corrija.
 - Las pruebas de notificaciones crean notificaciones reales en el proyecto de prueba.
 - `.env` está ignorado por git; nunca subas credenciales.

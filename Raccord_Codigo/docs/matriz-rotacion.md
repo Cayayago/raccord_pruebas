@@ -14,11 +14,9 @@ Reglas:
 
 | Integrante (usuario GitHub) | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | S9 |
 |---|---|---|---|---|---|---|---|---|---|
-| @integrante-1 | E2E | Front | | | | | | | |
-| @integrante-2 | E2E | API | | | | | | | |
-| @integrante-3 | E2E | BD | | | | | | | |
-| @integrante-4 | E2E | | | | | | | | |
-| @integrante-5 | E2E | | | | | | | | |
+| Javier Yaya (@Cayayago) | E2E — login, sesión, notificaciones, papelera, Crew List, humo UI | | | | | | | | |
+| Deiver Algecira (@deiveralgecira03-tech) | E2E — registro de empresa (`tests/api/registro.spec.ts`, `tests/ui/registro.spec.ts`) | | | | | | | | |
+| Carlos (@pendiente) | E2E | | | | | | | | |
 
 ## Cobertura semanal
 
@@ -35,3 +33,9 @@ El vocero escribe su respuesta **antes** de que el instructor llegue a la mesa; 
 | Semana | Vocero | Capa preguntada | Respuesta escrita | Resultado (Alto / Medio / Bajo) |
 |---|---|---|---|---|
 | S1 | | | | |
+
+## Hallazgos encontrados por los tests
+
+| Semana | Hallazgo | Test que lo detecta | Estado |
+|---|---|---|---|
+| S1 | La política de contraseñas (RF-006: mayúscula, minúscula, número y carácter especial) solo se valida en la app Flutter: la API registra `12345678`. | `e2e/tests/api/registro.spec.ts` (marcado `test.fail`) | Abierto |

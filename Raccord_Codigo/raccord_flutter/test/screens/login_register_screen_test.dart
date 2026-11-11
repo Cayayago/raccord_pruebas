@@ -219,9 +219,14 @@ void main() {
       await llenarFormulario(tester, contrasena: 'Clave\$egura1');
 
       // Act: acepta los términos y envía
+      // El formulario tiene scroll: como haría una persona, primero se
+      // desplaza hasta la casilla y el botón y luego los toca.
+      await tester.ensureVisible(find.byType(Checkbox));
       await tester.tap(find.byType(Checkbox));
       await tester.pump();
       expect(deshabilitado(tester, botonRegistrar), isFalse);
+      await tester.ensureVisible(botonRegistrar);
+      await tester.pumpAndSettle();
       await tester.tap(botonRegistrar);
       await tester.pumpAndSettle();
 

@@ -16,7 +16,6 @@ Reglas:
 |---|---|---|---|---|---|---|---|---|---|
 | Javier Yaya (@Cayayago) | E2E — login, sesión, notificaciones, papelera, Crew List, humo UI | API + Front + CI — `PRUEBAS_SEMANA_2.md` | | | | | | | |
 | Deiver Algecira (@deiveralgecira03-tech) | E2E — registro de empresa (`tests/api/registro.spec.ts`, `tests/ui/registro.spec.ts`) | API — reparto, subida de fotos, accesos por módulo, contrato momento del día | | | | | | | |
-| Carlos (@pendiente) | E2E | Front (pendiente) | | | | | | | |
 
 ## Cobertura semanal
 

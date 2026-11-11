@@ -14,7 +14,7 @@ Reglas:
 
 | Integrante (usuario GitHub) | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | S9 |
 |---|---|---|---|---|---|---|---|---|---|
-| Javier Yaya (@Cayayago) | E2E — login, sesión, notificaciones, papelera, Crew List, humo UI | API + Front + CI — `PRUEBAS_SEMANA_2.md` | Front: _por definir_ + backend al 40 % | | | | | | |
+| Javier Yaya (@Cayayago) | E2E — login, sesión, notificaciones, papelera, Crew List, humo UI | API + Front + CI — `PRUEBAS_SEMANA_2.md` | Front: _por definir_ + backend al 40 % (hecho: 41,29 %, `tests/test_controladores_contenido.py`) | | | | | | |
 | Deiver Algecira (@deiveralgecira03-tech) | E2E — registro de empresa (`tests/api/registro.spec.ts`, `tests/ui/registro.spec.ts`) | API — reparto, subida de fotos, accesos por módulo, contrato momento del día | Front: LoginRegisterScreen | | | | | | |
 
 ## Cobertura semanal
@@ -24,7 +24,8 @@ Anota la cobertura real al cerrar cada semana. El umbral de la semana siguiente 
 | Semana | Frontend (%) | Backend (%) | Umbral configurado para la semana siguiente |
 |---|---|---|---|
 | S1 (línea base) | 52.9 (18/34 líneas; solo archivos importados por el test) | 48 (solo archivos importados por `test_smoke`) | Frontend 52 · Backend 48 |
-| S2 | _anotar tras correr `flutter test --coverage`_ | 35.42 (todo `app/`, 4 074 sentencias) | Backend 35 (`pyproject.toml`) · S3: max(40, real) |
+| S2 | 75.00 (solo archivos que cargan los tests) | 35.42 (todo `app/`, 4 074 sentencias) | Backend 35 (`pyproject.toml`) · S3: max(40, real) |
+| S3 | 49.62 (solo archivos que cargan los tests) | 41.29 (todo `app/`, 4 074 sentencias) | Frontend 49 (`coverage_threshold.txt`) · Backend 41 (`pyproject.toml`) |
 
 > Desde la S2 el backend mide **todo** `app/`; la cifra de la S1 solo contaba los archivos importados y no es comparable. Por eso el umbral pasa de 48 a 35: no es que la cobertura bajara, es que ahora se mide bien.
 

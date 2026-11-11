@@ -39,6 +39,9 @@ class FakeQuery:
     def scalar(self):
         return self.first()
 
+    def count(self):
+        return len(self.all())
+
     def delete(self):
         return 0
 

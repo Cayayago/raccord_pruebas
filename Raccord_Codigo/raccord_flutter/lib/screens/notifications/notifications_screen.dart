@@ -213,17 +213,63 @@ class _NotificationCard extends StatelessWidget {
   }
 }
 
-class _NotificationPhoto extends StatelessWidget {
+/// Foto de la notificación: se muestra COMPLETA (BoxFit.contain, sin
+/// recortar) con un alto máximo, y al tocarla se abre en grande con zoom
+/// (InteractiveViewer) para poder leer todo el contenido.
+class _NotificationPhoto extends StatefulWidget {
   final String idNotificacion;
   const _NotificationPhoto({required this.idNotificacion});
 
   @override
-  Widget build(BuildContext context) {
+  State<_NotificationPhoto> createState() => _NotificationPhotoState();
+}
+
+class _NotificationPhotoState extends State<_NotificationPhoto> {
+  late final Future<List<int>> _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    // Se pide una sola vez; recargar la lista no vuelve a descargarla.
     final session = context.read<AuthSession>();
+    _bytes = NotificationService(session.api).fotoBytes(widget.idNotificacion);
+  }
+
+  void _ampliar(Uint8List data) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 6,
+                child: Center(child: Image.memory(data, fit: BoxFit.contain)),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: IconButton.filledTonal(
+                icon: const Icon(Icons.close),
+                tooltip: 'Cerrar',
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: FutureBuilder<List<int>>(
-        future: NotificationService(session.api).fotoBytes(idNotificacion),
+        future: _bytes,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const SizedBox(
@@ -237,11 +283,27 @@ class _NotificationPhoto extends StatelessWidget {
               child: Center(child: Icon(Icons.broken_image_outlined, color: AppColors.grisMedio)),
             );
           }
-          return Image.memory(
-            Uint8List.fromList(snap.data!),
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: 180,
+          final data = Uint8List.fromList(snap.data!);
+          return MouseRegion(
+            cursor: SystemMouseCursors.zoomIn,
+            child: GestureDetector(
+              onTap: () => _ampliar(data),
+              child: Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(maxHeight: 420),
+                color: Colors.black12,
+                child: Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    Image.memory(data, fit: BoxFit.contain, width: double.infinity),
+                    const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.zoom_out_map, size: 18, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           );
         },
       ),

@@ -240,9 +240,15 @@ class AppScaffold extends StatelessWidget {
   // diálogo "Notificar estos cambios al equipo" — ver
   // core/plan_change_tracker.dart.
   final bool guardPlanChanges;
+  // Llaves opcionales para el recorrido guiado (onboarding): botón de
+  // menú de módulos y menú de perfil (avatar).
+  final GlobalKey? menuKey;
+  final GlobalKey? avatarKey;
 
   const AppScaffold({
     super.key,
+    this.menuKey,
+    this.avatarKey,
     required this.title,
     required this.body,
     this.showBack = false,
@@ -393,12 +399,14 @@ class AppScaffold extends StatelessWidget {
                 if (effectiveEndDrawer != null)
                   Builder(
                     builder: (context) => IconButton(
+                      key: menuKey,
                       icon: const Icon(Icons.menu),
                       tooltip: 'Menú',
                       onPressed: () => Scaffold.of(context).openEndDrawer(),
                     ),
                   ),
                 PopupMenuButton<String>(
+                  key: avatarKey,
                   icon: CircleAvatar(
                     backgroundColor: AppColors.azulProfundo,
                     radius: 16,

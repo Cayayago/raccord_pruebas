@@ -21,6 +21,35 @@ class ProjectService {
     return Project.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
+  /// Edita los datos de un proyecto (PATCH /projects/{id}). [estado] y
+  /// [causalSuspension] se validan juntos en el backend: la causal es
+  /// obligatoria si el estado es 'suspendido' y se descarta en cualquier otro.
+  Future<void> update(
+    String idProject, {
+    required String projectName,
+    required String formatoDeProduccion,
+    required String genero,
+    String? sinopsis,
+    String? director,
+    required String estado,
+    String? causalSuspension,
+  }) async {
+    await api.patch('/projects/$idProject', body: {
+      'project_name': projectName,
+      'formato_de_produccion': formatoDeProduccion,
+      'genero': genero,
+      'sinopsis': sinopsis,
+      'director': director,
+      'estado': estado,
+      'causal_suspension': estado == 'suspendido' ? causalSuspension : null,
+    });
+  }
+
+  /// Elimina el proyecto y todo su contenido (DELETE /projects/{id}).
+  Future<void> delete(String idProject) async {
+    await api.delete('/projects/$idProject');
+  }
+
   /// Crea el proyecto Y lo vincula al usuario que lo crea, en un solo
   /// paso (POST /projects/create) — es lo que usan los mockups
   /// "Registra Proyecto" / "Crear Proyecto".

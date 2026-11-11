@@ -83,6 +83,8 @@ class ChangePasswordSchema(BaseModel):
 # y departamento de quien llama contra los del usuario objetivo.
 class UserEstadoSchema(BaseModel):
     estado: str
+    # Proyecto sobre el que se suspende/reactiva (la suspensión es por proyecto).
+    id_project: str
 
 
 # ==========================================

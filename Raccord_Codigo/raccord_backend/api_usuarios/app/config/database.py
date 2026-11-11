@@ -23,7 +23,16 @@ DATABASE_URL = (
 
 # ENGINE SQLALCHEMY
 
-engine = create_engine(DATABASE_URL)
+# RNF-008/009: el pool por defecto (5 + 10 de rebose) se queda corto con
+# ~20 usuarios haciendo consultas a la vez y las peticiones esperarían
+# por una conexión libre. pool_pre_ping evita errores por conexiones que
+# la BD cerró mientras estaban ociosas. Postgres admite 100 por defecto.
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=20,
+    max_overflow=20,
+    pool_pre_ping=True,
+)
 
 # SESIONES
 

@@ -21,12 +21,13 @@ class UserService {
   }
 
   /// Suspende ("suspendido") o reactiva ("activo") a otra persona del
-  /// equipo — nunca borra su información, solo le bloquea el login
-  /// hasta que alguien con permiso lo reactive. El backend valida quién
-  /// puede tocar a quién (Administrador/Director: todo el proyecto;
-  /// Jefe de Departamento: solo su propio departamento).
-  Future<void> setEstado(String id, String estado) async {
-    await api.patch('/users/$id/estado', body: {'estado': estado});
+  /// equipo EN ESTE PROYECTO ([idProject]) — nunca borra su información.
+  /// La persona sigue pudiendo entrar a la app, pero el proyecto deja de
+  /// aparecerle hasta que alguien con permiso la reactive. El backend
+  /// valida quién puede tocar a quién (Administrador/Director: todo el
+  /// proyecto; Jefe de Departamento: solo su propio departamento).
+  Future<void> setEstado(String id, String estado, String idProject) async {
+    await api.patch('/users/$id/estado', body: {'estado': estado, 'id_project': idProject});
   }
 
   /// Auto-edición del propio perfil (PATCH /users/me) — a diferencia de

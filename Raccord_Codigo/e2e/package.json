@@ -1,0 +1,21 @@
+{
+  "name": "raccord-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "engines": { "node": ">=22.0.0" },
+  "description": "Pruebas E2E (Playwright) de Raccord: API y UI web",
+  "scripts": {
+    "test": "playwright test",
+    "test:api": "playwright test --project=api",
+    "test:ui": "playwright test --project=ui",
+    "codegen": "playwright codegen http://localhost:8081",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.0.0",
+    "dotenv": "^16.4.5"
+  }
+}

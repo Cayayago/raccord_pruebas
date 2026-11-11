@@ -51,7 +51,9 @@ def store_and_link(data: ProjectCreateSchema, db: Session = Depends(get_db), cur
         genero=data.genero,
         sinopsis=data.sinopsis,
         director=data.director,
-        id_client=data.id_client
+        id_client=data.id_client,
+        estado=data.estado,
+        causal_suspension=data.causal_suspension,
     )
     id_client_actor = get_user_client(db, current_user.get("id_user"))
     return create_project_and_link(project, data.id_user, db, id_client_actor)

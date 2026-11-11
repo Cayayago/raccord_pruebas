@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart' show ContentAlign;
 
+import '../../core/onboarding_service.dart';
 import '../../core/session.dart';
+import '../../core/tour_kit.dart';
 import '../../models/scene.dart';
 import '../../services/character_service.dart';
 import '../../services/scene_service.dart';
@@ -27,6 +30,35 @@ const _modules = [
   _ModuleDef('Plan de Rodaje', Icons.event_note_outlined, AppColors.coral, '/plan-rodaje', 'plan_rodaje'),
 ];
 
+/// Llaves de los widgets que ilumina el recorrido guiado del Dashboard.
+class _DashboardTourKeys {
+  final guion = GlobalKey(debugLabel: 'tour_guion');
+  final escenas = GlobalKey(debugLabel: 'tour_escenas');
+  final desglose = GlobalKey(debugLabel: 'tour_desglose');
+  final plan = GlobalKey(debugLabel: 'tour_plan');
+  final resumen = GlobalKey(debugLabel: 'tour_resumen');
+  final estado = GlobalKey(debugLabel: 'tour_g_estado');
+  final momento = GlobalKey(debugLabel: 'tour_g_momento');
+  final espacio = GlobalKey(debugLabel: 'tour_g_espacio');
+  final horario = GlobalKey(debugLabel: 'tour_g_horario');
+  final ciudad = GlobalKey(debugLabel: 'tour_g_ciudad');
+  final menu = GlobalKey(debugLabel: 'tour_menu');
+  final avatar = GlobalKey(debugLabel: 'tour_avatar');
+
+  GlobalKey keyDeModulo(String modulo) {
+    switch (modulo) {
+      case 'guion':
+        return guion;
+      case 'escenas':
+        return escenas;
+      case 'desglose':
+        return desglose;
+      default:
+        return plan;
+    }
+  }
+}
+
 /// Shell del proyecto (mockups 7, 7.1, 7.2): header, menú lateral con
 /// los 8 módulos y tarjetas de acceso rápido.
 class ProjectDashboardScreen extends StatefulWidget {
@@ -44,6 +76,84 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> {
   // permite llegar al State desde afuera (currentState) para poder
   // disparar su recarga con el gesto de "deslizar hacia abajo".
   GlobalObjectKey<_ProjectChartsState>? _chartsKey;
+
+  // --- Onboarding (recorrido guiado del Dashboard) ---
+  final _tourKeys = _DashboardTourKeys();
+  OnboardingService? _onb;
+  OnboardingState _onbState = OnboardingState.hidden;
+
+  @override
+  void initState() {
+    super.initState();
+    // Después del primer frame: las llaves ya están montadas.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initOnboarding());
+  }
+
+  Future<void> _initOnboarding() async {
+    if (!mounted) return;
+    // projectId puede tardar en resolverse (ver comentario de _chartsKey);
+    // si no hay usuario todavía, no se evalúa.
+    final id = context.read<AuthSession>().user?.idUser;
+    if (id == null || id.isEmpty) return;
+
+    _onb = OnboardingService(userId: id, tourId: 'dashboard');
+    final estado = await _onb!.evaluate();
+    if (!mounted) return;
+    setState(() => _onbState = estado);
+    if (!estado.mandatory) return;
+
+    // Primer ingreso: espera a que carguen los gráficos (si no, no hay
+    // nada que iluminar) y lanza el recorrido sin "Saltar".
+    await Future.delayed(const Duration(milliseconds: 900));
+    for (var i = 0; i < 20 && mounted && _chartsKey?.currentState?._loading == true; i++) {
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _lanzarTour(obligatorio: true);
+    });
+  }
+
+  void _lanzarTour({required bool obligatorio}) {
+    final k = _tourKeys;
+    showTour(
+      context,
+      [
+        TourStep('guion', k.guion, ContentAlign.bottom, 'Guión',
+            'Aquí subes los guiones en PDF y controlas sus versiones. El segmentador de escenas y personajes solo está disponible cuando el guión está en estado Aprobado o En Rodaje.'),
+        TourStep('escenas', k.escenas, ContentAlign.bottom, 'Escenas',
+            'Aquí ves cada escena en detalle y subes fotos de prueba, locación, propuesta o de rodaje para llevar la continuidad.'),
+        TourStep('desglose', k.desglose, ContentAlign.bottom, 'Desglose',
+            'Detalla qué necesita cada escena. Puedes usar la vista compartida para ver el guión junto al desglose.'),
+        TourStep('plan', k.plan, ContentAlign.bottom, 'Plan de Rodaje',
+            'Aquí ves cómo se ejecutarán las grabaciones: qué escenas se ruedan cada día del rodaje.'),
+        TourStep('resumen', k.resumen, ContentAlign.bottom, 'Resumen del proyecto',
+            'Toda la información del proyecto: cuántos guiones y escenas hay, los días dramáticos, las fechas de grabación y los personajes.'),
+        TourStep('estado', k.estado, ContentAlign.right, 'Escenas por estado',
+            'Cuántas escenas están pendientes, en proceso, finalizadas o eliminadas.'),
+        TourStep('momento', k.momento, ContentAlign.left, 'Escenas por momento',
+            'Cuántas escenas ocurren de día, de noche, al amanecer, al atardecer o al anochecer.'),
+        TourStep('espacio', k.espacio, ContentAlign.right, 'Escenas por espacio',
+            'Cuántas son interiores, exteriores o pasan de interior a exterior (y viceversa).'),
+        TourStep('horario', k.horario, ContentAlign.left, 'Horario de grabación',
+            'De los días de rodaje, cuántos se grabarán de día y cuántos de noche.'),
+        TourStep('ciudad', k.ciudad, ContentAlign.top, 'Ciudades',
+            'Las ciudades donde se va a grabar y cuántas escenas hay en cada una.'),
+        TourStep('menu', k.menu, ContentAlign.left, 'Menú',
+            'Desde aquí accedes a todas las opciones y módulos del proyecto.'),
+        TourStep('avatar', k.avatar, ContentAlign.left, 'Tu perfil',
+            'Aquí cambias datos de tu perfil, cambias de proyecto o cierras sesión.'),
+      ],
+      mandatory: obligatorio,
+      onEnd: _alTerminarTour,
+    );
+  }
+
+  Future<void> _alTerminarTour() async {
+    await _onb?.markCompleted();
+    final estado = await _onb?.evaluate();
+    if (mounted && estado != null) setState(() => _onbState = estado);
+  }
 
   // Para "deslizar hacia abajo para recargar" (ver MobileRefresh): las
   // tarjetas de módulos de arriba son estáticas (no piden datos), así
@@ -68,6 +178,24 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> {
       // Ya estamos en el Dashboard: no tiene sentido mostrar el ícono de
       // casa que lleva ahí mismo.
       showHome: false,
+      menuKey: _tourKeys.menu,
+      avatarKey: _tourKeys.avatar,
+      // Días 1-7 con el recorrido completado: botón opcional (con
+      // "Saltar"). Pasada la semana desaparece solo.
+      actions: [
+        if (_onbState.showButton)
+          MediaQuery.of(context).size.width < 600
+              ? IconButton(
+                  icon: const Icon(Icons.help_outline),
+                  tooltip: 'Ver Recorrido',
+                  onPressed: () => _lanzarTour(obligatorio: false),
+                )
+              : TextButton.icon(
+                  onPressed: () => _lanzarTour(obligatorio: false),
+                  icon: const Icon(Icons.help_outline, size: 20),
+                  label: const Text('Ver Recorrido'),
+                ),
+      ],
       // El ícono de notificaciones vive SOLO acá — pedido explícito del
       // usuario, para no quitarle espacio al logo/título en el resto de
       // pantallas.
@@ -134,6 +262,7 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> {
                           .map((m) => SizedBox(
                                 width: cardWidth,
                                 child: ModuleCard(
+                                  key: _tourKeys.keyDeModulo(m.modulo),
                                   icon: m.icon,
                                   color: m.color,
                                   title: m.title,
@@ -163,7 +292,7 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> {
                   // disparar su recarga desde el pull-to-refresh de esta
                   // pantalla, pero el efecto de "recrear si cambia el
                   // proyecto" es el mismo.)
-                  _ProjectCharts(key: _chartsKey),
+                  _ProjectCharts(key: _chartsKey, tourKeys: _tourKeys),
                 ],
               ),
             ),
@@ -189,7 +318,8 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> {
 /// planos y saturados que ya usa el resto de la app, también pedido
 /// explícito del usuario.
 class _ProjectCharts extends StatefulWidget {
-  const _ProjectCharts({super.key});
+  final _DashboardTourKeys? tourKeys;
+  const _ProjectCharts({super.key, this.tourKeys});
 
   @override
   State<_ProjectCharts> createState() => _ProjectChartsState();
@@ -282,17 +412,23 @@ class _ProjectChartsState extends State<_ProjectCharts> {
             StatCard(label: 'Fechas de Grabación', value: '${diasRodaje.total}', icon: Icons.calendar_month_outlined, color: AppColors.azulProfundo),
             StatCard(label: 'Personajes', value: '${_personajes ?? 0}', icon: Icons.people_alt_outlined, color: AppColors.moradoTech),
           ];
-          return Wrap(
-            spacing: spacing,
-            runSpacing: spacing,
-            children: [for (final s in stats) SizedBox(width: cardWidth, child: s)],
+          return KeyedSubtree(
+            key: widget.tourKeys?.resumen,
+            child: Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [for (final s in stats) SizedBox(width: cardWidth, child: s)],
+            ),
           );
         }),
         const SizedBox(height: 14),
         LayoutBuilder(builder: (context, constraints) {
           final twoCols = constraints.maxWidth > 700;
+          final tk = widget.tourKeys;
+          // Adjunta la llave del recorrido sin alterar el layout.
+          Widget k(GlobalKey? key, Widget w) => key == null ? w : KeyedSubtree(key: key, child: w);
           final cards = <Widget>[
-            BarChartCard(
+            k(tk?.estado, BarChartCard(
               title: 'Escenas por Estado',
               icon: Icons.bar_chart_outlined,
               entries: [
@@ -301,8 +437,8 @@ class _ProjectChartsState extends State<_ProjectCharts> {
                 BarChartEntry(label: 'Pendiente', value: porEstado['Pendiente'] ?? 0, color: AppColors.azulProfundo.withOpacity(0.6)),
                 BarChartEntry(label: 'Eliminada', value: porEstado['Eliminada'] ?? 0, color: AppColors.grisMedio.withOpacity(0.6)),
               ],
-            ),
-            BarChartCard(
+            )),
+            k(tk?.momento, BarChartCard(
               title: 'Escenas por Momento',
               icon: Icons.nightlight_outlined,
               // Antes llevaba el emoji de `iconoMomento` delante del
@@ -318,13 +454,13 @@ class _ProjectChartsState extends State<_ProjectCharts> {
                         color: AppColors.moradoTech.withOpacity(0.6),
                       ))
                   .toList(),
-            ),
-            BarChartCard(
+            )),
+            k(tk?.espacio, BarChartCard(
               title: 'Escenas por Espacio',
               icon: Icons.home_work_outlined,
               entries: porEspacio.entries.map((e) => BarChartEntry(label: e.key, value: e.value, color: AppColors.azulProfundo.withOpacity(0.6))).toList(),
-            ),
-            BarChartCard(
+            )),
+            k(tk?.horario, BarChartCard(
               title: 'Horario de Grabación',
               icon: Icons.event_note_outlined,
               emptyMessage: 'Asigna fecha y momento a las escenas para ver este dato.',
@@ -332,13 +468,13 @@ class _ProjectChartsState extends State<_ProjectCharts> {
                 BarChartEntry(label: '☀️ Día', value: diasRodaje.dia, color: AppColors.warning.withOpacity(0.7)),
                 BarChartEntry(label: '🌙 Noche', value: diasRodaje.noche, color: AppColors.azulProfundo.withOpacity(0.7)),
               ],
-            ),
+            )),
             if (porCiudad.isNotEmpty)
-              BarChartCard(
+              k(tk?.ciudad, BarChartCard(
                 title: 'Escenas por Ciudad',
                 icon: Icons.location_city_outlined,
                 entries: porCiudad.entries.take(6).map((e) => BarChartEntry(label: e.key, value: e.value, color: AppColors.coral.withOpacity(0.6))).toList(),
-              ),
+              )),
           ];
 
           if (!twoCols) {

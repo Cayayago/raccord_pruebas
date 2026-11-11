@@ -35,6 +35,8 @@ MINIO_PUBLIC_ENDPOINT = os.getenv("MINIO_PUBLIC_ENDPOINT", MINIO_ENDPOINT)
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "raccord_admin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "raccord_minio_2026")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
+# RNF-013: cifrado en reposo de los buckets (ver _ensure_bucket_encryption).
+MINIO_ENCRYPT = os.getenv("MINIO_ENCRYPT", "false").lower() == "true"
 
 BUCKET_GUIONES = "guiones"
 BUCKET_IMAGENES = "imagenes"
@@ -87,6 +89,51 @@ def ensure_buckets():
                 logger.info("Bucket de MinIO creado: %s", bucket)
         except Exception as error:
             logger.error("No se pudo verificar/crear el bucket '%s' en MinIO: %s", bucket, error)
+            continue
+
+        if MINIO_ENCRYPT:
+            _ensure_bucket_encryption(bucket)
+
+
+# ==========================================
+# RNF-013: CIFRADO EN REPOSO (SSE-S3, AES-256)
+# ==========================================
+# Con MINIO_ENCRYPT=true cada bucket queda con "cifrado por defecto":
+# MinIO cifra con AES-256 TODO objeto nuevo en el servidor, sin que el
+# código de subida/descarga cambie (las descargas lo descifran solas).
+# Requiere que el servidor MinIO tenga una clave maestra
+# (MINIO_KMS_SECRET_KEY, ver docker-compose.yml).
+#
+# SEGURIDAD OPERATIVA: si MinIO no tuviera la clave configurada, activar
+# el cifrado haría fallar TODAS las subidas. Por eso, tras activarlo se
+# hace una subida/lectura de prueba; si falla, el cifrado se vuelve a
+# desactivar y la app sigue funcionando como antes (solo queda el aviso
+# en el log).
+def _ensure_bucket_encryption(bucket: str):
+    from minio.sseconfig import Rule, SSEConfig
+
+    try:
+        _client.set_bucket_encryption(bucket, SSEConfig(Rule.new_sse_s3_rule()))
+        probe = ".raccord-probe"
+        _client.put_object(bucket, probe, data=io.BytesIO(b"ok"), length=2, content_type="text/plain")
+        resp = _client.get_object(bucket, probe)
+        try:
+            assert resp.read() == b"ok"
+        finally:
+            resp.close()
+            resp.release_conn()
+        _client.remove_object(bucket, probe)
+        logger.info("Cifrado AES-256 en reposo activo en el bucket '%s'", bucket)
+    except Exception as error:
+        logger.error(
+            "No se pudo activar el cifrado en reposo en '%s' (%s). Se desactiva para no "
+            "romper las subidas; revisa MINIO_KMS_SECRET_KEY en el servicio minio.",
+            bucket, error,
+        )
+        try:
+            _client.delete_bucket_encryption(bucket)
+        except Exception:
+            pass
 
 
 # ==========================================

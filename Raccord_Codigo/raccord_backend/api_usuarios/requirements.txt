@@ -17,3 +17,7 @@ minio
 # imagen (esos necesitarían OCR, fuera de alcance por ahora).
 pypdf
 reportlab
+
+# Cobertura (Semana 1)
+pytest
+pytest-cov

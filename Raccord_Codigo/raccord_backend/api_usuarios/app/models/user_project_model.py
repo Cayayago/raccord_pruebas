@@ -44,6 +44,16 @@ class UserProject(Base):
         default=1005
     )
 
+    # activo | suspendido — suspensión POR PROYECTO (ver
+    # sql/029_user_projects_estado.sql). Suspendido: el proyecto no le
+    # aparece a la persona y la API le niega todo lo de ese proyecto.
+    estado = Column(
+        String(20),
+        nullable=False,
+        default="activo",
+        server_default="activo",
+    )
+
     fecha_vinculacion = Column(
         DateTime,
         server_default=func.now()

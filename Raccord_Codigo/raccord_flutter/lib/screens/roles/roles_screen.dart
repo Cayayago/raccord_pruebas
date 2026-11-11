@@ -122,9 +122,10 @@ class _RolesScreenState extends State<RolesScreen> {
         title: Text(suspender ? '¿Suspender a ${user.nombreCompleto}?' : '¿Reactivar a ${user.nombreCompleto}?'),
         content: Text(
           suspender
-              ? 'No podrá volver a iniciar sesión en este proyecto hasta que lo reactives. '
+              ? 'Este proyecto dejará de aparecerle y no podrá acceder a él hasta que lo reactives. '
+                  'Podrá seguir entrando a la app y a sus otros proyectos. '
                   'Toda la información que ya haya subido (escenas, fotos, desglose, etc.) se conserva intacta.'
-              : 'Podrá volver a iniciar sesión en este proyecto normalmente.',
+              : 'Este proyecto volverá a aparecerle y podrá acceder a él normalmente.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancelar')),
@@ -142,7 +143,7 @@ class _RolesScreenState extends State<RolesScreen> {
 
     final session = context.read<AuthSession>();
     try {
-      await UserService(session.api).setEstado(user.idUser, suspender ? 'suspendido' : 'activo');
+      await UserService(session.api).setEstado(user.idUser, suspender ? 'suspendido' : 'activo', session.projectId ?? '');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(suspender ? 'Usuario suspendido' : 'Usuario reactivado')),

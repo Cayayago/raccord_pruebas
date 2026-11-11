@@ -16,7 +16,6 @@ Reglas:
 |---|---|---|---|---|---|---|---|---|---|
 | Javier Yaya (@Cayayago) | E2E — login, sesión, notificaciones, papelera, Crew List, humo UI | | | | | | | | |
 | Deiver Algecira (@deiveralgecira03-tech) | E2E — registro de empresa (`tests/api/registro.spec.ts`, `tests/ui/registro.spec.ts`) | | | | | | | | |
-| Carlos (@pendiente) | E2E | | | | | | | | |
 
 ## Cobertura semanal
 

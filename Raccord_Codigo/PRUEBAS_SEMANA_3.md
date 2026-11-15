@@ -31,11 +31,11 @@ Archivo: `raccord_flutter/test/screens/login_register_screen_test.dart` (10 test
 | términos sin aceptar | no deja registrar | validación |
 | registro completo | registra, inicia sesión y navega a `/registrar-proyecto` | interacción + asíncrono |
 
-**Mutante propuesto** (lo corre y documenta Deiver en su PR):
+**Mutante comprobado en el CI** (commits `fa580d9` mutante y el siguiente, que lo revierte):
 
-| Mutante | Test que debe fallar |
-|---|---|
-| En `login_register_screen.dart`, validador del E-mail → `validator: (v) => null,` | `con los campos vacíos muestra la validación y no llama a la API` |
+| Mutante | Test que lo detectó | Resultado |
+|---|---|---|
+| En `login_register_screen.dart`, validador del E-mail → `validator: (v) => null,` | `con los campos vacíos muestra la validación y no llama a la API` | Falló: esperaba 2 textos "Ingresa tu correo" (hint + error) y encontró 1 (solo el hint). 36 pasaron, 1 falló. |
 
 ## Backend al 40 % (responsable de la semana)
 

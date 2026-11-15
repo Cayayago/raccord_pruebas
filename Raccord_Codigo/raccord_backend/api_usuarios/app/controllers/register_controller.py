@@ -1,7 +1,9 @@
+import logging
 import random
 import string
 from datetime import datetime
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.user_model import User
@@ -13,6 +15,8 @@ from app.utils.hash import hash_password
 from app.utils.formatters import format_text
 from app.utils.response import api_response
 from app.utils.mail import send_invitation_email, send_welcome_email
+
+logger = logging.getLogger("raccord")
 
 
 # ==========================================
@@ -84,10 +88,21 @@ def register(data, db: Session):
             "razon_social": new_client.razon_social
         })
 
-    except Exception as e:
+    except IntegrityError:
+        # Hallazgo semana 4: antes se devolvía str(e), que incluía el
+        # error de PostgreSQL con el nombre de la restricción, el valor
+        # duplicado y el INSERT completo (todas las columnas de "users").
         db.rollback()
-        print("Error en registro:", e)
-        return api_response(False, "Error al registrar", error=str(e))
+        logger.warning("Registro rechazado por datos duplicados")
+        return api_response(
+            False,
+            "Ya existe una cuenta con ese documento o correo.",
+            error="DUPLICATE_DATA",
+        )
+    except Exception:
+        db.rollback()
+        logger.exception("Error inesperado en el registro")
+        return api_response(False, "No fue posible completar el registro", error="REGISTER_ERROR")
 
 
 # ==========================================
@@ -199,10 +214,12 @@ def invite_users(invitados: list, id_project: str, id_client: str, db: Session):
                 "usuario_existente": False
             })
 
-        except Exception as e:
+        except Exception:
+            # Mismo hallazgo que en el registro: nunca devolver str(e).
+            logger.exception("Error invitando a %s", correo)
             errores.append({
                 "mail": correo,
-                "error": str(e)
+                "error": "No fue posible invitar a esta persona"
             })
             continue
 

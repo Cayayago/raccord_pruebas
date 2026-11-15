@@ -131,6 +131,55 @@ void main() {
     });
   });
 
+  group('Ayudas del formulario', () {
+    bool oculta(WidgetTester tester, String etiqueta) =>
+        tester.widget<EditableText>(find.descendant(of: campo(etiqueta), matching: find.byType(EditableText))).obscureText;
+
+    testWidgets('el enlace de recuperación lleva a "olvidé mi contraseña"', (tester) async {
+      // Arrange
+      await pumpWithProviders(tester, const LoginRegisterScreen());
+
+      // Act
+      await tester.tap(find.text('¿Olvidaste tu contraseña o usuario?'));
+      await tester.pumpAndSettle();
+
+      // Assert
+      expect(find.text('Pantalla: /olvide-password'), findsOneWidget);
+    });
+
+    testWidgets('el ojo muestra y vuelve a ocultar la contraseña al ingresar', (tester) async {
+      // Arrange
+      await pumpWithProviders(tester, const LoginRegisterScreen());
+      expect(oculta(tester, 'Contraseña'), isTrue);
+
+      // Act
+      await tester.tap(find.byIcon(Icons.visibility_outlined));
+      await tester.pump();
+
+      // Assert
+      expect(oculta(tester, 'Contraseña'), isFalse);
+      await tester.tap(find.byIcon(Icons.visibility_off_outlined));
+      await tester.pump();
+      expect(oculta(tester, 'Contraseña'), isTrue);
+    });
+
+    testWidgets('en el registro, cada contraseña tiene su propio botón para mostrarla', (tester) async {
+      // Arrange
+      await pumpWithProviders(tester, const LoginRegisterScreen());
+      await tester.tap(find.widgetWithText(Tab, 'Registrar'));
+      await tester.pumpAndSettle();
+
+      // Act: solo se muestra la primera
+      await tester.ensureVisible(find.byIcon(Icons.visibility_outlined).first);
+      await tester.tap(find.byIcon(Icons.visibility_outlined).first);
+      await tester.pump();
+
+      // Assert
+      expect(oculta(tester, 'Contraseña'), isFalse);
+      expect(oculta(tester, 'Confirmar Contraseña'), isTrue);
+    });
+  });
+
   group('Registrar', () {
     Future<void> abrirRegistro(WidgetTester tester) async {
       await tester.tap(find.widgetWithText(Tab, 'Registrar'));

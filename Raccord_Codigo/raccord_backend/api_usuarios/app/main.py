@@ -1,9 +1,11 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -29,7 +31,7 @@ from app.routes.module_access_routes import router as module_access_router
 from app.routes.contact_routes import router as contact_router
 from app.routes.notification_routes import router as notification_router
 
-from app.config.database import Base, engine
+from app.config.database import Base, engine, check_connection
 from app.utils.minio_client import ensure_buckets
 from app.models.user_project_model import UserProject
 from app.models.department_model import Department
@@ -53,17 +55,30 @@ load_dotenv()
 
 logger = logging.getLogger("raccord")
 
-# CREATE TABLES
-Base.metadata.create_all(bind=engine)
+# ==========================================
+# ARRANQUE (lifespan)
+# ==========================================
+# Antes, crear las tablas y los buckets de MinIO se hacía al IMPORTAR
+# este archivo: cualquier `from app.main import app` (por ejemplo, los
+# tests de API con TestClient) exigía PostgreSQL y MinIO encendidos. Ahora
+# se hace al arrancar el servidor (uvicorn), igual que antes en la
+# práctica, pero los tests pueden importar la app sin infraestructura.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    check_connection()
+    # CREATE TABLES
+    Base.metadata.create_all(bind=engine)
+    # ASEGURAR BUCKETS DE MINIO (guiones, imagenes) - los crea si no existen
+    ensure_buckets()
+    yield
 
-# ASEGURAR BUCKETS DE MINIO (guiones, imagenes) - los crea si no existen
-ensure_buckets()
 
 # FASTAPI
 
 app = FastAPI(
     title="API´S RACCORD",
-    version="1.0"
+    version="1.0",
+    lifespan=lifespan,
 )
 
 
@@ -140,6 +155,37 @@ app.include_router(contact_router)
 # formado, y el frontend lo interpreta como "no se pudo conectar con el
 # servidor" en vez de mostrar un mensaje claro. Aquí siempre respondemos
 # JSON con el mismo formato api_response que usa el resto de la API.
+# ==========================================
+# ERRORES DE VALIDACIÓN DE LA PETICIÓN (semana 4)
+# ==========================================
+# Por defecto FastAPI responde 422 a TODO error de la petición y devuelve
+# en "input" el valor que mandó el cliente. Dos problemas (hallazgos de
+# la semana 4, ver tests/test_api_seguridad.py):
+# 1. Un JSON mal formado no es un dato inválido, es una petición mal
+#    hecha: corresponde 400.
+# 2. "input" repetía lo enviado: con un tipo incorrecto en "contrasena",
+#    la respuesta devolvía la contraseña. Se responde solo type/loc/msg
+#    (lo que usa el frontend: ApiClient lee detail[0].msg).
+def _errores_sin_datos(exc: RequestValidationError):
+    return [
+        {"type": e.get("type"), "loc": list(e.get("loc", [])), "msg": e.get("msg")}
+        for e in exc.errors()
+    ]
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_handler(request: Request, exc: RequestValidationError):
+    if any(e.get("type") == "json_invalid" for e in exc.errors()):
+        return JSONResponse(
+            status_code=400,
+            content={
+                **api_response(False, "El cuerpo de la petición no es un JSON válido", error="MALFORMED_JSON"),
+                "detail": "El cuerpo de la petición no es un JSON válido",
+            },
+        )
+    return JSONResponse(status_code=422, content={"detail": _errores_sin_datos(exc)})
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Error no controlado en %s %s", request.method, request.url.path)

@@ -141,7 +141,7 @@ class _LoginFormState extends State<_LoginForm> {
             hint: 'Ingresa tu correo',
             controller: _mailCtrl,
             keyboardType: TextInputType.emailAddress,
-            validator: (v) => (v == null || v.isEmpty) ? 'Ingresa tu correo' : null,
+            validator: (v) => null, // MUTANTE (semana 3): se quitó la validación del E-mail
             // Fuerza minúscula de verdad (no solo evita el autocapitalizado
             // del teclado) — pedido explícito: en login/registro solo la
             // contraseña puede tener mayúsculas.

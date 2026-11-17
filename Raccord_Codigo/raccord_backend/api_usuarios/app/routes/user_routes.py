@@ -202,6 +202,21 @@ def destroy_user(
     return delete_user(id, db, current_user)
 
 
+# DESBLOQUEAR CUENTA (PROTEGIDO) — RNF-004
+# Quita el bloqueo por intentos fallidos de login. Es el "reset por
+# administrador" que exige el bloqueo tras 10 fallos en 24 h. Mismo
+# permiso y mismo aislamiento por empresa que eliminar usuarios.
+@router.post("/{id}/desbloquear")
+def unlock_user(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("full_management")),
+    _scope: dict = Depends(require_same_client_user()),
+):
+    from app.controllers.user_controller import unlock_user_login
+    return unlock_user_login(id, db)
+
+
 # SUSPENDER / REACTIVAR (PROTEGIDO)
 # Administrador (1001) y Director (1002): todo el proyecto. Jefe de
 # Departamento (1003): solo su propio departamento — esa parte del
@@ -213,7 +228,10 @@ def patch_user_estado(
     id: str,
     data: UserEstadoSchema,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_permission("manage_team_status")),
-    _scope: dict = Depends(require_same_client_user()),
+    # El permiso y el aislamiento se validan DENTRO del controller con el
+    # rol del actor en ESE proyecto y que el objetivo esté en el mismo
+    # proyecto (user_projects). El chequeo global por id_client daba 403
+    # a personas invitadas con otro id_client.
+    current_user: dict = Depends(get_current_user),
 ):
-    return set_user_estado(id, data.estado, current_user, db)
+    return set_user_estado(id, data.estado, current_user, db, data.id_project)

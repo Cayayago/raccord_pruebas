@@ -3,6 +3,15 @@ import '../core/api_exception.dart';
 import '../core/json_utils.dart';
 import '../models/gallery_photo.dart';
 
+/// Una página del resultado de [GalleryService.search].
+class GalleryPage {
+  final List<GalleryPhoto> items;
+  final int total;
+  final int page;
+  final int totalPages;
+  const GalleryPage({required this.items, required this.total, required this.page, required this.totalPages});
+}
+
 /// Fotos de continuidad visual de una escena (mockup "Continuidad
 /// Visual"). El binario vive en la base de datos — se sube con
 /// multipart/form-data y se descarga aparte con [archivoBytes].
@@ -22,6 +31,31 @@ class GalleryService {
   Future<List<GalleryPhoto>> all(String idProject) async {
     final data = await api.get('/fotos/project/$idProject');
     return asListOfMap(data).map(GalleryPhoto.fromJson).toList();
+  }
+
+  /// Búsqueda paginada en el servidor (RNF-008): GET
+  /// /fotos/project/{id}/buscar. [q] filtra por texto (escena, encabezado,
+  /// tipo, personaje, descripción, notas o nombre de archivo).
+  Future<GalleryPage> search(
+    String idProject, {
+    String q = '',
+    int page = 1,
+    int pageSize = 100,
+  }) async {
+    final params = <String, String>{
+      if (q.isNotEmpty) 'q': q,
+      'page': '$page',
+      'page_size': '$pageSize',
+    };
+    final qs = params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
+    final data = await api.get('/fotos/project/$idProject/buscar?$qs');
+    final map = Map<String, dynamic>.from(data as Map);
+    return GalleryPage(
+      items: asListOfMap(map['items']).map(GalleryPhoto.fromJson).toList(),
+      total: (map['total'] as num?)?.toInt() ?? 0,
+      page: (map['page'] as num?)?.toInt() ?? page,
+      totalPages: (map['total_pages'] as num?)?.toInt() ?? 1,
+    );
   }
 
   Future<GalleryPhoto> upload(

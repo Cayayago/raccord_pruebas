@@ -45,6 +45,7 @@ from app.models.gallery_photo_model import GalleryPhoto
 from app.models.crew_member_model import CrewMember
 from app.models.module_access_model import UserProjectModuleAccess
 from app.models.revoked_token_model import RevokedToken
+from app.models.login_attempt_model import LoginAttempt, LoginBlock
 from app.models.notification_model import Notification, NotificationDepartamento, NotificationRead
 from app.utils.response import api_response
 

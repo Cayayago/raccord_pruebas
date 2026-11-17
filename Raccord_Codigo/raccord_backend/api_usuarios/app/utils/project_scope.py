@@ -112,7 +112,11 @@ def get_role_in_project(db: Session, id_user, id_project) -> Optional[int]:
         .filter(UserProject.id_user == id_user, UserProject.id_project == id_project)
         .first()
     )
-    return link.id_rol if link else None
+    # Vínculo suspendido = como si no perteneciera al proyecto: todas las
+    # dependencias de este módulo (miembro/permiso/registro) lo rechazan.
+    if link is None or link.estado == "suspendido":
+        return None
+    return link.id_rol
 
 
 # ==========================================

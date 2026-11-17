@@ -16,6 +16,13 @@ class Project {
   // en core/session.dart, que es quien realmente decide qué permisos
   // tiene el usuario dentro del proyecto activo.
   final int? idRol;
+  // Estado del proyecto (ver kEstadosProyecto) y, solo si está
+  // suspendido, su causal (ver kCausalesSuspension). Ver
+  // sql/028_proyecto_estado.sql.
+  final String estado;
+  final String? causalSuspension;
+  // Personas vinculadas al proyecto (solo viene en /users/{id}/projects).
+  final int totalUsuarios;
 
   Project({
     required this.idProject,
@@ -26,7 +33,20 @@ class Project {
     this.director,
     required this.idClient,
     this.idRol,
+    this.estado = 'preliminar',
+    this.causalSuspension,
+    this.totalUsuarios = 0,
   });
+
+  /// Etiqueta legible del estado ("En rodaje", "Suspendido · Temporal"...).
+  String get estadoLabel {
+    final base = kEstadosProyecto[estado] ?? estado;
+    final causal = causalSuspension;
+    if (estado == 'suspendido' && causal != null) {
+      return '$base · ${kCausalesSuspension[causal] ?? causal}';
+    }
+    return base;
+  }
 
   String get resumen =>
       [formatoDeProduccion, genero, if (director != null && director!.isNotEmpty) 'Dir. $director']
@@ -46,6 +66,9 @@ class Project {
         director: director,
         idClient: idClient,
         idRol: idRol,
+        estado: estado,
+        causalSuspension: causalSuspension,
+        totalUsuarios: totalUsuarios,
       );
 
   factory Project.fromJson(Map<String, dynamic> json) {
@@ -58,9 +81,28 @@ class Project {
       director: asString(pick(json, ['director'])),
       idClient: asString(pick(json, ['id_client'])) ?? '',
       idRol: asInt(pick(json, ['id_rol'])),
+      estado: asString(pick(json, ['estado'])) ?? 'preliminar',
+      causalSuspension: asString(pick(json, ['causal_suspension'])),
+      totalUsuarios: asInt(pick(json, ['total_usuarios'])) ?? 0,
     );
   }
 }
+
+/// Estados de un proyecto: valor guardado en la BD -> etiqueta en pantalla.
+/// El orden del mapa es el orden en que se muestran en gráficos y listas.
+const Map<String, String> kEstadosProyecto = {
+  'preliminar': 'Preliminar',
+  'en_rodaje': 'En rodaje',
+  'suspendido': 'Suspendido',
+  'finalizado': 'Finalizado',
+};
+
+/// Causales de suspensión (solo cuando estado == 'suspendido').
+const Map<String, String> kCausalesSuspension = {
+  'temporal': 'Temporal',
+  'indefinido': 'Indefinido',
+  'incumplimiento': 'Incumplimiento',
+};
 
 /// Formatos y géneros ofrecidos en el mockup de "Registrar Proyecto".
 /// El backend los guarda como texto libre, así que estas listas son

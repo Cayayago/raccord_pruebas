@@ -92,6 +92,102 @@ def get_all_photos(id_project: str, db: Session):
 
 
 # ==========================================
+# BÚSQUEDA AVANZADA DE FOTOS (RNF-008 / RF-012)
+# ==========================================
+# Igual que get_all_photos pero filtrando y paginando EN EL SERVIDOR:
+# con miles de fotos no se puede mandar todo el proyecto en cada
+# consulta. Filtros combinables (todos opcionales):
+#   q                texto en descripción, notas, nombre de archivo,
+#                    encabezado de la escena o código de personaje
+#   tipo_foto        Locación | Propuesta | Prueba | En Rodaje
+#   personaje_codigo código exacto (ej. P001)
+#   id_escena        una escena concreta
+#   dia_dramatico    día dramático de la escena
+#   desde / hasta    rango de fecha de subida (YYYY-MM-DD, ambos incluidos)
+# Devuelve {items, total, page, page_size, total_pages}. El endpoint
+# anterior (get_all_photos) NO se toca: la Galería actual sigue igual.
+MAX_PAGE_SIZE = 200
+
+
+def _like_escape(texto: str) -> str:
+    return texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def search_photos(
+    id_project: str,
+    db: Session,
+    q: str | None = None,
+    tipo_foto: str | None = None,
+    personaje_codigo: str | None = None,
+    id_escena: str | None = None,
+    dia_dramatico: int | None = None,
+    desde: str | None = None,
+    hasta: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+):
+    from datetime import timedelta
+    from sqlalchemy import or_
+
+    page = max(1, page)
+    page_size = max(1, min(page_size, MAX_PAGE_SIZE))
+
+    query = (
+        db.query(GalleryPhoto, Scene)
+        .join(Scene, GalleryPhoto.id_escena == Scene.id_escena)
+        .join(Script, Scene.id_guion == Script.id_guion)
+        .filter(Script.id_project == id_project)
+        .filter(GalleryPhoto.eliminada.is_(False))
+    )
+
+    if q and q.strip():
+        patron = f"%{_like_escape(q.strip())}%"
+        query = query.filter(or_(
+            GalleryPhoto.descripcion.ilike(patron, escape="\\"),
+            GalleryPhoto.notas_continuidad.ilike(patron, escape="\\"),
+            GalleryPhoto.archivo_nombre.ilike(patron, escape="\\"),
+            GalleryPhoto.personaje_codigo.ilike(patron, escape="\\"),
+            Scene.encabezado.ilike(patron, escape="\\"),
+            Scene.numero_de_escena.ilike(patron, escape="\\"),
+            GalleryPhoto.tipo_foto.ilike(patron, escape="\\"),
+        ))
+    if tipo_foto:
+        query = query.filter(GalleryPhoto.tipo_foto == tipo_foto)
+    if personaje_codigo:
+        query = query.filter(GalleryPhoto.personaje_codigo == personaje_codigo)
+    if id_escena:
+        query = query.filter(GalleryPhoto.id_escena == id_escena)
+    if dia_dramatico is not None:
+        query = query.filter(Scene.dia_dramatico == dia_dramatico)
+
+    try:
+        if desde:
+            query = query.filter(GalleryPhoto.fecha_subida >= datetime.fromisoformat(desde))
+        if hasta:
+            # "hasta" incluye todo ese día.
+            query = query.filter(GalleryPhoto.fecha_subida < datetime.fromisoformat(hasta) + timedelta(days=1))
+    except ValueError:
+        return api_response(False, "Las fechas deben tener formato AAAA-MM-DD", error="INVALID_DATE")
+
+    total = query.order_by(None).count()
+
+    rows = (
+        query.order_by(GalleryPhoto.fecha_subida.desc(), GalleryPhoto.id_foto)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    return api_response(True, "Resultado de la búsqueda de fotos", {
+        "items": [_serialize(p, scene) for p, scene in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    })
+
+
+# ==========================================
 # GET PAPELERA DE RECICLAJE (fotos eliminadas de UN proyecto)
 # ==========================================
 # Igual que get_all_photos pero al revés: solo las marcadas eliminada

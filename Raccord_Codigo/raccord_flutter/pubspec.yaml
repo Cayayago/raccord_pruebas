@@ -13,6 +13,7 @@ dependencies:
   http: ^1.2.1
   http_parser: ^4.0.2
   shared_preferences: ^2.2.3
+  tutorial_coach_mark: ^1.3.4
   provider: ^6.1.2
   # Bloquea screenshots/grabación de pantalla en Android e iOS nativos
   # (FLAG_SECURE / API de iOS). En Web no tiene efecto real — ningún

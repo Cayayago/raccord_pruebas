@@ -38,6 +38,21 @@ class Project(Base):
         String(255)
     )
 
+    # Estado del proyecto — ver sql/028_proyecto_estado.sql.
+    # preliminar | en_rodaje | suspendido | finalizado
+    estado = Column(
+        String(20),
+        nullable=False,
+        default="preliminar",
+        server_default="preliminar",
+    )
+
+    # Solo cuando estado == "suspendido": temporal | indefinido | incumplimiento
+    causal_suspension = Column(
+        String(20),
+        nullable=True,
+    )
+
     # index=True: aislamiento multi-tenant, se filtra por cliente en
     # cada listado de proyectos de una empresa (ver
     # sql/022_indices_faltantes.sql).

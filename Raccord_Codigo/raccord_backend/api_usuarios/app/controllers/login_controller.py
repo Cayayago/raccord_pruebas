@@ -15,6 +15,7 @@ from app.utils.security import create_access_token
 from app.utils.response import api_response
 from app.utils.mail import send_2fa_email
 from app.utils.token_revocation import revoke_token
+from app.utils.login_guard import assert_not_blocked, register_failure, register_success
 
 # ==========================================
 # 2FA - INTERRUPTOR GLOBAL (TEMPORAL)
@@ -114,10 +115,18 @@ def _credenciales_invalidas():
     )
 
 
-def _validar_credenciales(mail: str, contrasena: str, db: Session):
+def _validar_credenciales(mail: str, contrasena: str, db: Session, ip: str = "unknown"):
+    # RNF-004: si la cuenta o la IP están bloqueadas se corta ANTES de
+    # mirar la contraseña (así un bloqueo no se puede "probar" acertando
+    # la clave) y con el mismo mensaje exista o no el correo.
+    assert_not_blocked(db, mail, ip)
+
     user = db.query(User).filter(User.mail == mail).first()
 
     if not user:
+        # Se cuenta igual que una contraseña mala: el comportamiento de
+        # "correo inexistente" y "clave incorrecta" debe ser idéntico.
+        register_failure(db, mail, ip)
         return None, _credenciales_invalidas()
 
     try:
@@ -129,7 +138,11 @@ def _validar_credenciales(mail: str, contrasena: str, db: Session):
         return None, api_response(False, "No fue posible validar las credenciales", error="AUTH_ERROR")
 
     if not password_ok:
+        register_failure(db, mail, ip)
         return None, _credenciales_invalidas()
+
+    # Contraseña correcta: se olvidan los fallos previos de esta cuenta.
+    register_success(db, mail)
 
     # Suspendido por un Administrador/Director (o el Jefe de su propio
     # departamento) desde "Roles del Equipo" — no se borra ninguna de
@@ -142,14 +155,27 @@ def _validar_credenciales(mail: str, contrasena: str, db: Session):
             error="USER_SUSPENDED"
         )
 
+    # Suspensión por proyecto (user_projects.estado): si la persona está
+    # suspendida en TODOS sus proyectos no le queda nada a lo que entrar,
+    # así que se bloquea el ingreso de una vez. Si aún tiene algún
+    # proyecto activo, entra y solo ve esos (los suspendidos no aparecen).
+    from app.models.user_project_model import UserProject  # import local: evita ciclos
+    estados = [e for (e,) in db.query(UserProject.estado).filter(UserProject.id_user == user.id_user).all()]
+    if estados and all(e == "suspendido" for e in estados):
+        return None, api_response(
+            False,
+            "Tu acceso fue suspendido. Contacta a un administrador de tu equipo.",
+            error="USER_SUSPENDED"
+        )
+
     return user, None
 
 
 # ==========================================
 # LOGIN
 # ==========================================
-def login_user(mail: str, contrasena: str, db: Session):
-    user, error = _validar_credenciales(mail, contrasena, db)
+def login_user(mail: str, contrasena: str, db: Session, ip: str = "unknown"):
+    user, error = _validar_credenciales(mail, contrasena, db, ip)
 
     if error:
         return error
@@ -204,8 +230,8 @@ def _device_is_verified(mail: str, device_id: str) -> bool:
 #
 # La contraseña se valida PRIMERO, siempre: si está mal, no importa si
 # el dispositivo es confiable o no, se corta acá con INVALID_PASSWORD.
-def check_2fa_required(mail: str, device_id: str, contrasena: str, db: Session):
-    _, error = _validar_credenciales(mail, contrasena, db)
+def check_2fa_required(mail: str, device_id: str, contrasena: str, db: Session, ip: str = "unknown"):
+    _, error = _validar_credenciales(mail, contrasena, db, ip)
 
     if error:
         return error
@@ -228,8 +254,8 @@ def check_2fa_required(mail: str, device_id: str, contrasena: str, db: Session):
 # ==========================================
 # 2FA - ENVIAR CODIGO
 # ==========================================
-def send_2fa_code(mail: str, device_id: str, contrasena: str, db: Session):
-    user, error = _validar_credenciales(mail, contrasena, db)
+def send_2fa_code(mail: str, device_id: str, contrasena: str, db: Session, ip: str = "unknown"):
+    user, error = _validar_credenciales(mail, contrasena, db, ip)
 
     if error:
         return error
@@ -264,8 +290,8 @@ def send_2fa_code(mail: str, device_id: str, contrasena: str, db: Session):
 # el más importante para revalidar la contraseña: aunque alguien se
 # salte la pantalla de login y llame este endpoint directo, no puede
 # obtener sesión sin la contraseña correcta, solo con el código.
-def verify_2fa_code(mail: str, codigo: str, device_id: str, contrasena: str, db: Session):
-    user, error = _validar_credenciales(mail, contrasena, db)
+def verify_2fa_code(mail: str, codigo: str, device_id: str, contrasena: str, db: Session, ip: str = "unknown"):
+    user, error = _validar_credenciales(mail, contrasena, db, ip)
 
     if error:
         return error

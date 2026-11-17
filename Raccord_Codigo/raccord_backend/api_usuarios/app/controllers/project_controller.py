@@ -5,6 +5,36 @@ from app.utils.response import api_response
 from app.models.user_model import User
 from app.models.user_project_model import UserProject
 
+
+def _project_dict(p: Project) -> dict:
+    return {
+        "id_project": p.id_project,
+        "project_name": p.project_name,
+        "formato_de_produccion": p.formato_de_produccion,
+        "genero": p.genero,
+        "sinopsis": p.sinopsis,
+        "director": p.director,
+        "id_client": p.id_client,
+        "estado": p.estado,
+        "causal_suspension": p.causal_suspension,
+    }
+
+
+def _normalizar_estado(estado, causal):
+    """Aplica la regla: la causal es obligatoria si estado == 'suspendido' y
+    no puede existir en ningún otro estado (la BD también lo exige con CHECK).
+
+    Devuelve (estado, causal, mensaje_error). Si hay error, los dos primeros
+    valores son None."""
+    if estado == "suspendido":
+        if not causal:
+            return None, None, "Un proyecto suspendido requiere una causal (temporal, indefinido o incumplimiento)"
+        return estado, causal, None
+    if causal:
+        return None, None, "La causal solo aplica cuando el proyecto está suspendido"
+    return estado, None, None
+
+
 # GET ALL PROJECTS (del usuario que hace la petición)
 
 # Antes devolvía TODOS los proyectos de TODOS los clientes sin
@@ -19,18 +49,7 @@ def get_projects(id_user: str, db: Session):
         .filter(UserProject.id_user == id_user)
         .all()
     )
-    projects_list = [
-        {
-            "id_project": p.id_project,
-            "project_name": p.project_name,
-            "formato_de_produccion": p.formato_de_produccion,
-            "genero": p.genero,
-            "sinopsis": p.sinopsis,
-            "director": p.director,
-            "id_client": p.id_client
-        }
-        for p in projects
-    ]
+    projects_list = [_project_dict(p) for p in projects]
     return api_response(True, "Lista de proyectos", projects_list)
 
 
@@ -42,15 +61,7 @@ def get_project(id: str, db: Session):
     if not project:
         return api_response(False, "Proyecto no encontrado")
 
-    return api_response(True, "Proyecto encontrado", {
-        "id_project": project.id_project,
-        "project_name": project.project_name,
-        "formato_de_produccion": project.formato_de_produccion,
-        "genero": project.genero,
-        "sinopsis": project.sinopsis,
-        "director": project.director,
-        "id_client": project.id_client
-    })
+    return api_response(True, "Proyecto encontrado", _project_dict(project))
 
 # UPDATE PROJECT (PUT)
 
@@ -69,6 +80,14 @@ def update_project_full(id: str, project: ProjectSchema, db: Session):
     project_db.genero = project.genero
     project_db.sinopsis = project.sinopsis
     project_db.director = project.director
+
+    # El estado es opcional en el PUT: si no viene, no se toca.
+    if project.estado is not None:
+        estado, causal, error = _normalizar_estado(project.estado, project.causal_suspension)
+        if error:
+            return api_response(False, error, error="INVALID_PROJECT_STATE")
+        project_db.estado = estado
+        project_db.causal_suspension = causal
 
     db.commit()
     db.refresh(project_db)
@@ -92,6 +111,21 @@ def update_project(id: str, project, db: Session):
 
     update_data = project.model_dump(exclude_unset=True)
     update_data.pop("id_client", None)
+
+    # Estado/causal se validan juntos, considerando lo que ya tiene el proyecto:
+    # p. ej. pasar a "finalizado" limpia la causal; pasar a "suspendido" exige
+    # que venga una.
+    if "estado" in update_data or "causal_suspension" in update_data:
+        estado_nuevo = update_data.get("estado", project_db.estado)
+        if "estado" in update_data and update_data["estado"] != "suspendido":
+            causal_nueva = update_data.get("causal_suspension")  # solo si la mandan
+        else:
+            causal_nueva = update_data.get("causal_suspension", project_db.causal_suspension)
+        estado, causal, error = _normalizar_estado(estado_nuevo, causal_nueva)
+        if error:
+            return api_response(False, error, error="INVALID_PROJECT_STATE")
+        update_data["estado"] = estado
+        update_data["causal_suspension"] = causal
 
     for key, value in update_data.items():
         setattr(project_db, key, value)
@@ -123,18 +157,7 @@ def delete_project(id: str, db: Session):
 
 def get_projects_by_client(id_client: str, db: Session):
     projects = db.query(Project).filter(Project.id_client == id_client).all()
-    projects_list = [
-        {
-            "id_project": p.id_project,
-            "project_name": p.project_name,
-            "formato_de_produccion": p.formato_de_produccion,
-            "genero": p.genero,
-            "sinopsis": p.sinopsis,
-            "director": p.director,
-            "id_client": p.id_client
-        }
-        for p in projects
-    ]
+    projects_list = [_project_dict(p) for p in projects]
     return api_response(True, "Proyectos del cliente", projects_list)
 
 # CREATE PROJECT
@@ -157,13 +180,20 @@ def create_project(project: ProjectSchema, db: Session, id_client_actor: str):
         if existing:
             return api_response(False, "ID de proyecto ya existe", error="DUPLICATE_PROJECT")
 
+    # Un proyecto nuevo nace "preliminar" salvo que se indique otro estado.
+    estado, causal, error = _normalizar_estado(project.estado or "preliminar", project.causal_suspension)
+    if error:
+        return api_response(False, error, error="INVALID_PROJECT_STATE")
+
     new_project = Project(
         project_name=project.project_name,
         formato_de_produccion=project.formato_de_produccion,
         genero=project.genero,
         sinopsis=project.sinopsis,
         director=project.director,
-        id_client=id_client_actor
+        id_client=id_client_actor,
+        estado=estado,
+        causal_suspension=causal,
     )
     if project_id:
         new_project.id_project = project_id

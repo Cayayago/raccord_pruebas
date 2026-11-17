@@ -1,0 +1,18 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--cov=app --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    # Sin lógica de negocio: scripts de operación manual, no se ejecutan en la app.
+    "app/utils/encrypt_existing_objects.py",
+]
+
+[tool.coverage.report]
+# Regla de trinquete: max(piso de la semana, cobertura real redondeada hacia abajo).
+# Semana 2: piso 30, real 35.42 % -> 35. Nunca bajar.
+# (El 48 % de la semana 1 estaba en pytest.ini y solo contaba los archivos que
+# importaba el único test; desde la semana 2 se mide TODO app/.)
+fail_under = 35

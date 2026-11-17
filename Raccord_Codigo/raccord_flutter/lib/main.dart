@@ -225,7 +225,30 @@ Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
       return null;
   }
 
+  // Toda ruta que no sea de autenticación exige sesión: si alguien abre una
+  // URL directa (p. ej. /#/dashboard) sin haber iniciado sesión, ve el Login.
+  const rutasPublicas = {'/login', '/2fa', '/olvide-password'};
+  if (!rutasPublicas.contains(settings.name)) {
+    final protegida = page;
+    page = _AuthGuard(child: protegida);
+  }
+
   return MaterialPageRoute(builder: (_) => page, settings: settings);
+}
+
+/// Muestra [child] solo con sesión activa. Mientras se restaura la sesión
+/// persistida muestra el splash; sin sesión, el Login.
+class _AuthGuard extends StatelessWidget {
+  final Widget child;
+  const _AuthGuard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<AuthSession>();
+    if (!session.ready) return const _SplashGate();
+    if (!session.isAuthenticated) return const LoginRegisterScreen();
+    return child;
+  }
 }
 
 /// Decide la primera pantalla según el estado de sesión persistido:

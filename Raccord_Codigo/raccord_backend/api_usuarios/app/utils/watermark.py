@@ -56,8 +56,13 @@ def add_watermark(pdf_bytes: bytes, mail: str) -> bytes:
         overlay_reader = PdfReader(io.BytesIO(overlay_bytes))
         overlay_page = overlay_reader.pages[0]
 
-        page.merge_page(overlay_page)
-        writer.add_page(page)
+        # La página se agrega PRIMERO al writer y la marca se fusiona sobre
+        # esa copia. Al revés (merge sobre la página del reader), pypdf 7.0
+        # lanza DeprecationError y, como get_script_archivo atrapa la
+        # excepción, el guion se servía SIN marca de agua. Lo detectó
+        # tests/test_mail_watermark.py al correr con pypdf 7.
+        pagina_destino = writer.add_page(page)
+        pagina_destino.merge_page(overlay_page)
 
     output = io.BytesIO()
     writer.write(output)

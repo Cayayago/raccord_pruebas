@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
 
@@ -60,24 +61,145 @@ class _GalleryScreenState extends State<GalleryScreen> {
   final Map<String, GlobalKey> _sectionKeys = {};
   String? _activeKey;
 
+  // Búsqueda y paginación en el servidor (RNF-008): se piden las fotos de
+  // a [_tamanoPagina] con GET /fotos/project/{id}/buscar en vez de bajar
+  // todo el proyecto, y "Cargar más" agrega la página siguiente.
+  static const _tamanoPagina = 100;
+  final List<GalleryPhoto> _acum = [];
+  int _total = 0;
+  int _pagina = 1;
+  int _totalPaginas = 1;
+  bool _cargandoMas = false;
+  String _q = ''; // texto de búsqueda ya aplicado en el servidor
+  Timer? _debounce;
+
   @override
   void initState() {
     super.initState();
     _future = _load();
-    _busqueda.addListener(() => setState(() {}));
+    _busqueda.addListener(_onBusquedaCambio);
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _busqueda.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  Future<List<GalleryPhoto>> _load() {
+  // Espera a que la persona termine de escribir antes de consultar.
+  void _onBusquedaCambio() {
+    final nuevo = _busqueda.text.trim();
+    if (nuevo == _q) return;
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      _q = nuevo;
+      _reload();
+    });
+  }
+
+  Future<List<GalleryPhoto>> _load() async {
     final session = context.read<AuthSession>();
-    return GalleryService(session.api).all(session.projectId ?? '');
+    final r = await GalleryService(session.api).search(
+      session.projectId ?? '',
+      q: _q,
+      page: 1,
+      pageSize: _tamanoPagina,
+    );
+    _acum
+      ..clear()
+      ..addAll(r.items);
+    _total = r.total;
+    _pagina = r.page;
+    _totalPaginas = r.totalPages;
+    return _acum;
+  }
+
+  Future<void> _cargarMas() async {
+    if (_cargandoMas || _pagina >= _totalPaginas) return;
+    setState(() => _cargandoMas = true);
+    try {
+      final session = context.read<AuthSession>();
+      final r = await GalleryService(session.api).search(
+        session.projectId ?? '',
+        q: _q,
+        page: _pagina + 1,
+        pageSize: _tamanoPagina,
+      );
+      if (!mounted) return;
+      setState(() {
+        _acum.addAll(r.items);
+        _total = r.total;
+        _pagina = r.page;
+        _totalPaginas = r.totalPages;
+        _cargandoMas = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _cargandoMas = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudieron cargar más fotos.')),
+      );
+    }
+  }
+
+  /// Buscador + contador + botones de selección/descarga. Vive FUERA del
+  /// FutureBuilder para que al buscar no se reconstruya (y pierda el foco)
+  /// el campo de texto mientras se escribe.
+  Widget _barraSuperior() {
+    return Row(
+      children: [
+        Expanded(
+          child: AppTextField(
+            label: 'Buscar',
+            hint: 'Por escena, encabezado, tipo de foto o personaje...',
+            controller: _busqueda,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          _acum.length < _total ? '${_acum.length} de $_total foto(s)' : '$_total foto(s)',
+          style: const TextStyle(color: AppColors.grisMedio, fontSize: 12),
+        ),
+        const SizedBox(width: 12),
+        if (!_seleccionando)
+          OutlinedButton.icon(
+            onPressed: () => setState(() => _seleccionando = true),
+            icon: const Icon(Icons.checklist, size: 18),
+            label: const Text('Seleccionar'),
+          )
+        else ...[
+          Text('${_seleccionadas.length}/$kMaxDescargaSeleccion seleccionada(s)',
+              style: const TextStyle(color: AppColors.grisMedio, fontSize: 12)),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _descargando
+                ? null
+                : () => setState(() {
+                      _seleccionando = false;
+                      _seleccionadas.clear();
+                    }),
+            child: const Text('Cancelar'),
+          ),
+          const SizedBox(width: 4),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.azulProfundo),
+            onPressed: (_descargando || _seleccionadas.isEmpty) ? null : () => _descargarSeleccionadas(_acum),
+            icon: _descargando
+                ? const SizedBox(
+                    height: 14,
+                    width: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.download, size: 18),
+            label: Text(_descargando ? 'Descargando...' : 'Descargar'),
+          ),
+        ],
+      ],
+    );
   }
 
   // Con llaves para que el callback de setState devuelva void y no el
@@ -301,41 +423,38 @@ class _GalleryScreenState extends State<GalleryScreen> {
     return AppScaffold(
       title: 'Galería',
       showBack: true,
-      body: FutureBuilder<List<GalleryPhoto>>(
-        future: _future,
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) return const LoadingView();
-          if (snap.hasError) return ErrorView(message: 'No se pudieron cargar las fotos.', onRetry: _reload);
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _barraSuperior(),
+          const SizedBox(height: 16),
+          Expanded(
+            child: FutureBuilder<List<GalleryPhoto>>(
+              future: _future,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) return const LoadingView();
+                if (snap.hasError) return ErrorView(message: 'No se pudieron cargar las fotos.', onRetry: _reload);
 
-          final todas = snap.data ?? [];
-          if (todas.isEmpty) {
-            return MobileRefresh(
-              onRefresh: _onPullRefresh,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  EmptyView(
-                    message: 'Todavía no hay fotos de continuidad en ninguna escena.',
-                    icon: Icons.photo_library_outlined,
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final filtro = _busqueda.text.trim().toLowerCase();
-          final fotos = filtro.isEmpty
-              ? todas
-              : todas.where((p) {
-                  final campos = [
-                    p.numeroDeEscenaOrigen ?? '',
-                    p.encabezadoEscenaOrigen ?? '',
-                    p.tipoFoto,
-                    p.personajeCodigo ?? '',
-                    p.descripcion ?? '',
-                  ].join(' ').toLowerCase();
-                  return campos.contains(filtro);
-                }).toList();
+                // La búsqueda y la paginación se hacen en el servidor
+                // (GET /fotos/project/{id}/buscar): acá solo llegan las
+                // fotos ya filtradas de las páginas cargadas.
+                final fotos = _acum;
+                if (fotos.isEmpty) {
+                  return MobileRefresh(
+                    onRefresh: _onPullRefresh,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        EmptyView(
+                          message: _q.isEmpty
+                              ? 'Todavía no hay fotos de continuidad en ninguna escena.'
+                              : 'Ninguna foto coincide con la búsqueda.',
+                          icon: _q.isEmpty ? Icons.photo_library_outlined : Icons.search_off,
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
           // Nivel 1: agrupar por día dramático (null = sin asignar, va
           // al final). Nivel 2, dentro de cada día: agrupar por escena.
@@ -377,70 +496,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           final indiceEnOrden = <GalleryPhoto, int>{
             for (var i = 0; i < ordenVisual.length; i++) ordenVisual[i]: i,
           };
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: AppTextField(
-                      label: 'Buscar',
-                      hint: 'Por escena, encabezado, tipo de foto o personaje...',
-                      controller: _busqueda,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text('${fotos.length} foto(s)', style: const TextStyle(color: AppColors.grisMedio, fontSize: 12)),
-                  const SizedBox(width: 12),
-                  if (!_seleccionando)
-                    OutlinedButton.icon(
-                      onPressed: () => setState(() => _seleccionando = true),
-                      icon: const Icon(Icons.checklist, size: 18),
-                      label: const Text('Seleccionar'),
-                    )
-                  else ...[
-                    Text('${_seleccionadas.length}/$kMaxDescargaSeleccion seleccionada(s)',
-                        style: const TextStyle(color: AppColors.grisMedio, fontSize: 12)),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: _descargando
-                          ? null
-                          : () => setState(() {
-                                _seleccionando = false;
-                                _seleccionadas.clear();
-                              }),
-                      child: const Text('Cancelar'),
-                    ),
-                    const SizedBox(width: 4),
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(backgroundColor: AppColors.azulProfundo),
-                      onPressed: (_descargando || _seleccionadas.isEmpty) ? null : () => _descargarSeleccionadas(fotos),
-                      icon: _descargando
-                          ? const SizedBox(
-                              height: 14,
-                              width: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.download, size: 18),
-                      label: Text(_descargando ? 'Descargando...' : 'Descargar'),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: fotos.isEmpty
-                    ? MobileRefresh(
-                        onRefresh: _onPullRefresh,
-                        child: ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: const [
-                            EmptyView(message: 'Ninguna foto coincide con la búsqueda.', icon: Icons.search_off),
-                          ],
-                        ),
-                      )
-                    : Row(
+                    return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
@@ -524,6 +580,19 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                         ],
                                       ),
                                     ),
+                                  if (_pagina < _totalPaginas)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 28),
+                                      child: Center(
+                                        child: OutlinedButton.icon(
+                                          onPressed: _cargandoMas ? null : _cargarMas,
+                                          icon: _cargandoMas
+                                              ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                                              : const Icon(Icons.expand_more, size: 18),
+                                          label: Text(_cargandoMas ? 'Cargando...' : 'Cargar más fotos (${_acum.length} de $_total)'),
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
@@ -540,11 +609,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                             ),
                           ],
                         ],
-                      ),
-              ),
-            ],
-          );
-        },
+                      );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

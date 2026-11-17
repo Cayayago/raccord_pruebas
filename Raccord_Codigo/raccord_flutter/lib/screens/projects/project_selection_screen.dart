@@ -10,9 +10,20 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/mobile_refresh.dart';
 import '../../widgets/state_views.dart';
+import '../../core/onboarding_service.dart';
+import 'project_edit_dialog.dart';
 import 'project_form_screen.dart';
+import 'projects_admin_panel.dart';
+import 'projects_compact_view.dart';
+import 'projects_tour.dart';
 
-/// Mockups 3 y 6: Gestión de Proyectos.
+/// Gestión de Proyectos.
+///
+/// - Administrador en pantalla ancha (PC): panel interactivo con gráficos
+///   y filtrado cruzado ([ProjectsAdminPanel]).
+/// - Móvil y demás roles: vista compacta con filtro, lista paginada con
+///   flechas y, solo para el Administrador, "Crear Proyecto"
+///   ([ProjectsCompactView]).
 class ProjectSelectionScreen extends StatefulWidget {
   const ProjectSelectionScreen({super.key});
 
@@ -21,26 +32,64 @@ class ProjectSelectionScreen extends StatefulWidget {
 }
 
 class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
+  // Ancho mínimo para mostrar el panel de gráficos del Administrador.
+  static const double _anchoPanel = 1000;
+
   late Future<List<Project>> _future;
-  // La lista de proyectos ya no se muestra de entrada: solo aparece cuando
-  // la persona toca "Escoger Proyecto", para que la pantalla inicial se
-  // vea limpia (solo las dos tarjetas de acción).
-  bool _showProjects = false;
+
+  // --- Onboarding (recorrido guiado) ---
+  final _tourKeys = ProjectsTourKeys();
+  OnboardingService? _onb;
+  OnboardingState _onbState = OnboardingState.hidden;
 
   @override
   void initState() {
     super.initState();
     _future = _load();
-    // Solo Administrador (1001) puede crear proyectos nuevos (ver
-    // core/permissions.dart, espejo de app/utils/permissions.py). Para
-    // el resto de roles la tarjeta "Crear Proyecto" ni siquiera se
-    // muestra, así que de una vez les mostramos su lista de proyectos
-    // asignados: es la única acción que tienen disponible en esta
-    // pantalla.
+    // Después del primer frame para que las llaves del recorrido ya
+    // estén montadas y no haya errores de renderizado.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initOnboarding());
+  }
+
+  /// El recorrido solo existe en el panel del Administrador en PC.
+  bool get _panelActivo {
     final session = context.read<AuthSession>();
-    if (!hasPermission(session.user?.idRol, 'create_project')) {
-      _showProjects = true;
+    final isAdmin = hasPermission(session.user?.idRol, 'create_project');
+    return isAdmin && MediaQuery.of(context).size.width >= _anchoPanel;
+  }
+
+  Future<void> _initOnboarding() async {
+    if (!mounted) return;
+    final id = context.read<AuthSession>().user?.idUser;
+    if (id == null || id.isEmpty) return;
+
+    _onb = OnboardingService(userId: id, tourId: 'projects');
+    final estado = await _onb!.evaluate();
+    if (!mounted) return;
+    setState(() => _onbState = estado);
+
+    // Primer ingreso: se lanza solo, sin "Saltar", cuando ya cargaron
+    // los proyectos y el panel está dibujado.
+    if (!estado.mandatory || !_panelActivo) return;
+    try {
+      await _future;
+    } catch (_) {
+      return;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _lanzarTour(obligatorio: true);
+    });
+  }
+
+  void _lanzarTour({required bool obligatorio}) {
+    if (_tourKeys.lista.currentContext == null) return; // panel aún no dibujado
+    showProjectsTour(context, _tourKeys, mandatory: obligatorio, onEnd: _alTerminarTour);
+  }
+
+  Future<void> _alTerminarTour() async {
+    await _onb?.markCompleted();
+    final estado = await _onb?.evaluate();
+    if (mounted && estado != null) setState(() => _onbState = estado);
   }
 
   Future<List<Project>> _load() {
@@ -66,11 +115,27 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     final session = context.watch<AuthSession>();
+    // Solo Administrador (1001) puede crear proyectos (ver
+    // core/permissions.dart, espejo de app/utils/permissions.py).
+    final isAdmin = hasPermission(session.user?.idRol, 'create_project');
+    final ancho = MediaQuery.of(context).size.width;
+    final usaPanel = isAdmin && ancho >= _anchoPanel;
 
     return Scaffold(
       appBar: AppBar(
         title: const AppWordmark(fontSize: 20),
         actions: [
+          // Días 1-7 con el recorrido completado: botón opcional (con
+          // "Saltar"). Pasada la semana desaparece solo.
+          if (usaPanel && _onbState.showButton)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: TextButton.icon(
+                onPressed: () => _lanzarTour(obligatorio: false),
+                icon: const Icon(Icons.help_outline, size: 20),
+                label: const Text('Ver Recorrido'),
+              ),
+            ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.person_outline),
             onSelected: (v) async {
@@ -92,86 +157,38 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
         ],
       ),
       body: SafeArea(
-        child: MobileRefresh(
+        child: LayoutBuilder(builder: (context, c) {
+        // En PC el panel ocupa el alto disponible de la ventana (se adapta
+        // al zoom/tamaño) para que todo quepa sin desplazarse; por debajo
+        // del mínimo vuelve a aparecer el scroll.
+        const reservado = 16 * 2 + 78; // padding vertical + encabezado
+        final altoPanel = (c.maxHeight - reservado).clamp(640.0, 2000.0);
+        return MobileRefresh(
           onRefresh: _onPullRefresh,
           child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 32),
-          // Se centra todo el contenido y se limita su ancho máximo para
-          // que, en pantallas anchas (navegador de escritorio), las
-          // tarjetas no queden estiradas pegadas a los bordes — 900 en
-          // vez de 640: aprovecha mejor pantallas grandes sin llegar a
-          // ocupar todo el ancho (pedido explícito del usuario).
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: Column(
-                children: [
-                  const Icon(Icons.movie_creation_outlined, color: AppColors.azulProfundo, size: 52),
-                  const SizedBox(height: 16),
-                  const Text('Gestión de Proyectos', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 30)),
-                  const SizedBox(height: 8),
-                  Builder(builder: (context) {
-                    final session = context.watch<AuthSession>();
-                    final canCreate = hasPermission(session.user?.idRol, 'create_project');
-                    return Text(
-                      canCreate
-                          ? 'Accede a un proyecto existente o inicia uno nuevo en el sistema.'
-                          : 'Accede a uno de los proyectos que tienes asignados.',
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.symmetric(vertical: usaPanel ? 16 : 32, horizontal: usaPanel ? 20 : 16),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: usaPanel ? 2400 : 640),
+                child: Column(
+                  children: [
+                    if (!usaPanel) ...[
+                      const Icon(Icons.movie_creation_outlined, color: AppColors.azulProfundo, size: 44),
+                      const SizedBox(height: 12),
+                    ],
+                    Text('Gestión de Proyectos', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, fontSize: usaPanel ? 24 : 28)),
+                    SizedBox(height: usaPanel ? 4 : 8),
+                    Text(
+                      usaPanel
+                          ? 'Filtra tocando un director o una columna de los gráficos.'
+                          : (isAdmin
+                              ? 'Accede a un proyecto existente o inicia uno nuevo.'
+                              : 'Accede a uno de los proyectos que tienes asignados.'),
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: AppColors.grisMedio),
-                    );
-                  }),
-                  const SizedBox(height: 24),
-                  Builder(
-                    builder: (context) {
-                      final session = context.watch<AuthSession>();
-                      final canCreate = hasPermission(session.user?.idRol, 'create_project');
-
-                      final cards = [
-                        _OptionCard(
-                          icon: Icons.folder_open_outlined,
-                          title: 'Escoger Proyecto',
-                          subtitle: 'Acceder a un proyecto existente',
-                          onTap: () => setState(() => _showProjects = true),
-                        ),
-                        // Solo Administrador (1001) puede crear proyectos;
-                        // el resto de roles (Director incluido) solo puede
-                        // elegir entre los que ya tiene asignados, así que
-                        // esta tarjeta directamente no se muestra para
-                        // ellos en vez de aparecer deshabilitada.
-                        if (canCreate)
-                          _OptionCard(
-                            icon: Icons.add,
-                            title: 'Crear Proyecto',
-                            subtitle: 'Registrar un nuevo proyecto',
-                            onTap: () async {
-                              final created = await showCreateProjectDialog(context);
-                              if (created != null) _reload();
-                            },
-                          ),
-                      ];
-
-                      if (cards.length == 1) return cards.first;
-
-                      return LayoutBuilder(
-                        builder: (context, constraints) {
-                          final narrow = constraints.maxWidth < 420;
-                          return narrow
-                              ? Column(children: [cards[0], const SizedBox(height: 12), cards[1]])
-                              : Row(
-                                  children: [
-                                    Expanded(child: cards[0]),
-                                    const SizedBox(width: 16),
-                                    Expanded(child: cards[1]),
-                                  ],
-                                );
-                        },
-                      );
-                    },
-                  ),
-                  if (_showProjects) ...[
-                    const SizedBox(height: 24),
+                    ),
+                    SizedBox(height: usaPanel ? 12 : 24),
                     FutureBuilder<List<Project>>(
                       future: _future,
                       builder: (context, snap) {
@@ -180,48 +197,68 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
                           return ErrorView(message: 'No se pudieron cargar tus proyectos.', onRetry: _reload);
                         }
                         final projects = snap.data ?? [];
-                        if (projects.isEmpty) {
+                        if (usaPanel) {
+                          return ProjectsAdminPanel(
+                            height: altoPanel,
+                            tourKeys: _tourKeys,
+                            projects: projects,
+                            onOpen: _selectProject,
+                            onCreate: _crear,
+                            onEdit: _editar,
+                            onDelete: _eliminar,
+                          );
+                        }
+                        if (projects.isEmpty && !isAdmin) {
                           return const EmptyView(
-                            message: 'Todavía no tienes proyectos. Crea el primero arriba.',
+                            message: 'Todavía no tienes proyectos asignados.',
                             icon: Icons.movie_filter_outlined,
                           );
                         }
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.video_library_outlined, size: 18, color: AppColors.azulProfundo),
-                                    const SizedBox(width: 8),
-                                    const Text('Proyectos disponibles', style: TextStyle(fontWeight: FontWeight.w700)),
-                                    const Spacer(),
-                                    Text('${projects.length} proyectos', style: const TextStyle(color: AppColors.grisMedio)),
-                                  ],
-                                ),
-                              ),
-                              const Divider(height: 1),
-                              ...projects.map((p) => _ProjectTile(project: p, onTap: () => _selectProject(p))),
-                            ],
-                          ),
+                        return ProjectsCompactView(
+                          projects: projects,
+                          onOpen: _selectProject,
+                          onCreate: isAdmin ? _crear : null,
+                          onEdit: _editar,
+                          onDelete: _eliminar,
                         );
                       },
                     ),
                   ],
-                ],
+                ),
               ),
             ),
           ),
-          ),
-        ),
+        );
+        }),
       ),
     );
+  }
+
+  Future<void> _crear() async {
+    final created = await showCreateProjectDialog(context);
+    if (created != null) _reload();
+  }
+
+  Future<void> _editar(Project p) async {
+    final saved = await showEditProjectDialog(context, p);
+    if (saved) _reload();
+  }
+
+  Future<void> _eliminar(Project p) async {
+    final ok = await confirmDelete(
+      context,
+      title: '¿Eliminar proyecto?',
+      message: 'Se eliminará "${p.projectName}" con todo su contenido. Esta acción no se puede deshacer.',
+    );
+    if (!ok || !mounted) return;
+    final session = context.read<AuthSession>();
+    try {
+      await ProjectService(session.api).delete(p.idProject);
+      _reload();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo eliminar el proyecto.')));
+    }
   }
 
   Future<void> _selectProject(Project project) async {
@@ -229,56 +266,5 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
     await session.setProject(project);
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (r) => false);
-  }
-}
-
-class _OptionCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
-
-  const _OptionCard({required this.icon, required this.title, required this.subtitle, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          children: [
-            CircleAvatar(radius: 30, backgroundColor: AppColors.surfaceVariant, child: Icon(icon, color: AppColors.azulProfundo, size: 28)),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
-            const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(color: AppColors.grisMedio, fontSize: 13), textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProjectTile extends StatelessWidget {
-  final Project project;
-  final VoidCallback onTap;
-  const _ProjectTile({required this.project, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      leading: CircleAvatar(backgroundColor: AppColors.surfaceVariant, child: const Icon(Icons.movie_outlined, color: AppColors.azulProfundo)),
-      title: Text(project.projectName, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(project.resumen, style: const TextStyle(color: AppColors.grisMedio)),
-      trailing: const Icon(Icons.chevron_right),
-    );
   }
 }

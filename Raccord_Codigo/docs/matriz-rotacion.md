@@ -14,8 +14,8 @@ Reglas:
 
 | Integrante (usuario GitHub) | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | S9 |
 |---|---|---|---|---|---|---|---|---|---|
-| Javier Yaya (@Cayayago) | E2E — login, sesión, notificaciones, papelera, Crew List, humo UI | API + Front + CI — `PRUEBAS_SEMANA_2.md` | | | | | | | |
-| Deiver Algecira (@deiveralgecira03-tech) | E2E — registro de empresa (`tests/api/registro.spec.ts`, `tests/ui/registro.spec.ts`) | API — reparto, subida de fotos, accesos por módulo, contrato momento del día | | | | | | | |
+| Javier Yaya (@Cayayago) | E2E — login, sesión, notificaciones, papelera, Crew List, humo UI | API + Front + CI — `PRUEBAS_SEMANA_2.md` · [PR #2](https://github.com/Cayayago/raccord_pruebas/pull/2) | | | | | | | |
+| Deiver Algecira (@deiveralgecira03-tech) | E2E — registro de empresa (`tests/api/registro.spec.ts`, `tests/ui/registro.spec.ts`) | API — reparto, subida de fotos, accesos por módulo, contrato momento del día · [PR #2](https://github.com/Cayayago/raccord_pruebas/pull/2) | | | | | | | |
 
 ## Cobertura semanal
 

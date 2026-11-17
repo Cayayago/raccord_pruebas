@@ -24,7 +24,7 @@ Anota la cobertura real al cerrar cada semana. El umbral de la semana siguiente 
 | Semana | Frontend (%) | Backend (%) | Umbral configurado para la semana siguiente |
 |---|---|---|---|
 | S1 (línea base) | 52.9 (18/34 líneas; solo archivos importados por el test) | 48 (solo archivos importados por `test_smoke`) | Frontend 52 · Backend 48 |
-| S2 | _anotar tras correr `flutter test --coverage`_ | 35.42 (todo `app/`, 4 074 sentencias) | Backend 35 (`pyproject.toml`) · S3: max(40, real) |
+| S2 | 75.00 (solo archivos que cargan los tests) | 35.42 (todo `app/`, 4 074 sentencias) | Frontend 30 (`coverage_threshold.txt`, alcance por acordar con el instructor) · Backend 35 (`pyproject.toml`) |
 
 > Desde la S2 el backend mide **todo** `app/`; la cifra de la S1 solo contaba los archivos importados y no es comparable. Por eso el umbral pasa de 48 a 35: no es que la cobertura bajara, es que ahora se mide bien.
 
@@ -47,4 +47,4 @@ El vocero escribe su respuesta **antes** de que el instructor llegue a la mesa; 
 
 ## Regla de rama
 
-- [ ] Ruleset `main protegida` (Settings → Rules → Rulesets) con los checks `backend-fastapi` y `frontend-flutter`.
+- [x] Ruleset `proteger-main` (Settings → Rules → Rulesets) con los checks `backend-fastapi` y `frontend-flutter`.

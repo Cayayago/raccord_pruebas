@@ -15,4 +15,4 @@ omit = [
 # Semana 2: piso 30, real 35.42 % -> 35. Nunca bajar.
 # (El 48 % de la semana 1 estaba en pytest.ini y solo contaba los archivos que
 # importaba el único test; desde la semana 2 se mide TODO app/.)
-fail_under = 35
+fail_under = 99

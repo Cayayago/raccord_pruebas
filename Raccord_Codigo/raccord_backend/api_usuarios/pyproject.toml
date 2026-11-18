@@ -12,7 +12,8 @@ omit = [
 
 [tool.coverage.report]
 # Regla de trinquete: max(piso de la semana, cobertura real redondeada hacia abajo).
-# Semana 2: piso 30, real 35.42 % -> 35. Nunca bajar.
+# Semana 2: piso 30, real 35.42 % -> 35.
+# Semana 3: piso 40, real 41.29 % -> 41. Nunca bajar.
 # (El 48 % de la semana 1 estaba en pytest.ini y solo contaba los archivos que
 # importaba el único test; desde la semana 2 se mide TODO app/.)
-fail_under = 35
+fail_under = 41

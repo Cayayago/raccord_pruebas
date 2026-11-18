@@ -10,6 +10,9 @@
 // - MaterialApp con rutas falsas: si la pantalla navega, el test ve el
 //   texto "Pantalla: <ruta>" (equivale a MemoryRouter).
 // - Ventana grande para que los formularios largos quepan sin scroll.
+// - [prepararSesion] (opcional): deja la sesión iniciada (usuario, rol,
+//   proyecto) ANTES de montar la pantalla, para las pantallas que leen la
+//   sesión en initState o cambian según el rol.
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -18,6 +21,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:raccord/core/session.dart';
+import 'package:raccord/core/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Rutas a las que puede navegar una pantalla. Cada una solo muestra
@@ -36,6 +40,7 @@ Future<AuthSession> pumpWithProviders(
   Widget pantalla, {
   Future<http.Response> Function(http.Request req)? api,
   List<http.Request>? peticiones,
+  Future<void> Function(AuthSession session)? prepararSesion,
 }) async {
   SharedPreferences.setMockInitialValues({});
 
@@ -52,9 +57,15 @@ Future<AuthSession> pumpWithProviders(
     }),
   );
 
+  if (prepararSesion != null) await prepararSesion(session);
+
   await tester.pumpWidget(
-    ChangeNotifierProvider<AuthSession>.value(
-      value: session,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthSession>.value(value: session),
+        // AppScaffold (barra superior de las pantallas internas) lo necesita.
+        ChangeNotifierProvider<ThemeController>(create: (_) => ThemeController()),
+      ],
       child: MaterialApp(
         home: pantalla,
         routes: {

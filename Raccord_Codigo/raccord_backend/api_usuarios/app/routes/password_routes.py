@@ -8,6 +8,7 @@ from app.schemas.password_schema import RecoverSchema, ResetPasswordSchema
 from app.controllers.password_controller import recover_password, reset_password
 
 from app.utils.rate_limit import rate_limit
+from app.utils.notifier import Notifier, get_notifier
 
 # ==========================================
 # ROUTER (público: se usa antes de tener sesión)
@@ -27,8 +28,9 @@ def recover(
     data: RecoverSchema,
     db: Session = Depends(get_db),
     _rl=Depends(rate_limit("recover-password", max_attempts=5, window_seconds=300)),
+    notifier: Notifier = Depends(get_notifier),
 ):
-    return recover_password(data.mail, db)
+    return recover_password(data.mail, db, notifier)
 
 
 # RESET PASSWORD

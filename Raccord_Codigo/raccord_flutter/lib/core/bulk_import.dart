@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:csv/csv.dart' as csv_pkg;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 /// Utilidad compartida de "Carga masiva" (CSV/JSON) para escenas,
 /// personajes, actores y roles (invitaciones). Cada pantalla define su
@@ -45,6 +46,14 @@ Future<List<Map<String, String>>?> pickAndParseBulkFile() async {
 }
 
 String _normalizeKey(String key) => key.trim().toLowerCase();
+
+/// Expuestos solo para las pruebas (test/core/bulk_import_test.dart):
+/// permiten probar el parseo de CSV/JSON sin abrir el selector de archivos.
+@visibleForTesting
+List<Map<String, String>> parseBulkJson(String content) => _parseJson(content);
+
+@visibleForTesting
+List<Map<String, String>> parseBulkCsv(String content) => _parseCsv(content);
 
 List<Map<String, String>> _parseJson(String content) {
   final decoded = jsonDecode(content);

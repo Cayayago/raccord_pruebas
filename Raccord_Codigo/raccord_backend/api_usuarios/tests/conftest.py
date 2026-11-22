@@ -43,3 +43,40 @@ def db():
     finally:
         session.close()
         engine.dispose()
+
+
+# ==========================================
+# Semana 4 — pruebas de API con TestClient
+# ==========================================
+class _Api:
+    def __init__(self, client, sesion):
+        self.client = client
+        self.db = sesion  # FakeSession: lo que "devuelve la BD" en este test
+
+
+@pytest.fixture()
+def api():
+    """TestClient de la app real con la BD reemplazada por un FakeSession.
+
+    - app.dependency_overrides[get_db]: ningún endpoint toca PostgreSQL.
+    - Sin `with TestClient(...)`: no corre el lifespan (crear tablas,
+      buckets de MinIO), así que tampoco se necesita infraestructura.
+    - raise_server_exceptions=False: un error 500 se ve como lo vería el
+      frontend (respuesta HTTP), no como una excepción en el test.
+    - Se limpian los contadores del rate limit para que los tests no se
+      bloqueen entre sí.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.config.database import get_db
+    from app.main import app
+    from app.utils import rate_limit
+    from tests.fakes import FakeSession
+
+    rate_limit._attempts.clear()
+    sesion = FakeSession()
+    app.dependency_overrides[get_db] = lambda: sesion
+    try:
+        yield _Api(TestClient(app, raise_server_exceptions=False), sesion)
+    finally:
+        app.dependency_overrides.clear()

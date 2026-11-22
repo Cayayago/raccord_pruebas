@@ -56,9 +56,13 @@ def get_db():
 
 # PRUEBA CONEXION
 
-try:
-    connection = engine.connect()
-    print("Conexion exitosa PostgreSQL")
-    connection.close()
-except Exception as error:
-    print("Error conexion:", error)
+def check_connection():
+    """Prueba la conexión a PostgreSQL. Se llama al ARRANCAR la app
+    (lifespan en app/main.py), no al importar este módulo: así los tests
+    de API pueden importar la app sin una base de datos real."""
+    try:
+        connection = engine.connect()
+        print("Conexion exitosa PostgreSQL")
+        connection.close()
+    except Exception as error:
+        print("Error conexion:", error)

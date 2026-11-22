@@ -26,6 +26,17 @@ class FakeQuery:
     def join(self, *args, **kwargs):
         return self
 
+    # Paginación (semana 4, capa BD): la búsqueda de fotos pagina con
+    # .offset().limit(). El fake corta la lista de resultados igual que lo
+    # haría la BD, para poder probar qué página devuelve el endpoint.
+    def offset(self, n):
+        valor = self._result if isinstance(self._result, list) else ([] if self._result is None else [self._result])
+        return FakeQuery(valor[n:])
+
+    def limit(self, n):
+        valor = self._result if isinstance(self._result, list) else ([] if self._result is None else [self._result])
+        return FakeQuery(valor[:n])
+
     def first(self):
         if isinstance(self._result, list):
             return self._result[0] if self._result else None
@@ -38,6 +49,9 @@ class FakeQuery:
 
     def scalar(self):
         return self.first()
+
+    def count(self):
+        return len(self.all())
 
     def delete(self):
         return 0

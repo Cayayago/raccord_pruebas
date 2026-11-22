@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -71,7 +72,14 @@ class AuthSession extends ChangeNotifier {
   /// base (session.can), esto es solo la capa adicional de arriba.
   bool canSeeModule(String modulo) => _moduleLevels[modulo] != 'sin_acceso';
 
-  late final ApiClient api = ApiClient(tokenProvider: () => _token);
+  /// [httpClient] solo se pasa en las pruebas (un `MockClient` de
+  /// package:http/testing.dart) para que las pantallas no salgan a la red.
+  /// En la app real queda null y ApiClient usa el cliente HTTP normal.
+  AuthSession({http.Client? httpClient}) : _httpClient = httpClient;
+
+  final http.Client? _httpClient;
+
+  late final ApiClient api = ApiClient(tokenProvider: () => _token, httpClient: _httpClient);
 
   Future<void> bootstrap() async {
     final prefs = await SharedPreferences.getInstance();

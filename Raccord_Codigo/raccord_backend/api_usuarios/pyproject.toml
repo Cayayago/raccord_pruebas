@@ -17,4 +17,4 @@ omit = [
 # Semana 4: piso 50, real 62.70 % (los tests de API recorren rutas y permisos) -> 62. Nunca bajar.
 # (El 48 % de la semana 1 estaba en pytest.ini y solo contaba los archivos que
 # importaba el único test; desde la semana 2 se mide TODO app/.)
-fail_under = 62
+fail_under = 63

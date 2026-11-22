@@ -74,12 +74,53 @@ El frontend cerraba la S3 en 43,80 %. Para pasar el piso de 50 % se agregaron te
 
 Resultado en el CI del PR #7: **118 tests, frontend 63,65 %**, backend 62,70 %. Umbrales: `coverage_threshold.txt` = 63, `fail_under` = 62.
 
-## Javier — ángulo BD (propuesta)
+## Javier — ángulo BD: respuestas que dependen de lo guardado
 
-Endpoints cuya respuesta depende de lo guardado, con el `FakeSession`:
-- Duplicados: personaje con código repetido, correo de usuario repetido.
-- Dependientes: no borrar un personaje con actores, ni un día de rodaje con escenas (por API).
-- Búsquedas y filtros: escenas por guion o por día de rodaje, fotos por escena y papelera.
+Archivo: `raccord_backend/api_usuarios/tests/test_api_bd.py` (25 tests). Misma técnica que el ángulo E2E: `TestClient` sobre la app real y `FakeSession`; cada test decide qué "hay guardado" y verifica la respuesta HTTP **y** lo que el endpoint le pidió a la BD (`api.db.deleted`, `api.db.commits`).
+
+Cambio en `tests/fakes.py`: `FakeQuery` ahora entiende `.offset()` y `.limit()` y corta la lista como lo haría la BD, para poder probar qué página devuelve la búsqueda de fotos. Sigue ignorando los filtros SQL (eso es de la semana 6).
+
+| Grupo | Escenario | Esperado |
+|---|---|---|
+| Dependientes | `DELETE /characters/{id}` con 2 actores | `200` JSON, `success: false`, `CHARACTER_HAS_ACTORS`, **no** se borra ni se hace commit |
+| Dependientes | `DELETE /characters/{id}` sin actores y en 3 escenas | se borra, el mensaje avisa de las 3 escenas |
+| Dependientes | `DELETE /shooting-days/{id}` con 2 escenas agendadas | `SHOOTING_DAY_IN_USE`, no se borra |
+| Dependientes | `DELETE /shooting-days/{id}` sin escenas | se borra |
+| Inexistente | `DELETE /characters/no-existe` | `404` JSON `{"detail": "Personaje no encontrado"}` |
+| Relación | `GET /shooting-days/{id}` | trae las escenas de ese día (y `[]`, no `null`, si no hay) |
+| Búsqueda | `GET /fotos/project/{id}/buscar?page=2&page_size=2` con 5 fotos | items de la página 2, `total 5`, `total_pages 3` |
+| Búsqueda | proyecto sin fotos / `page_size=5000` / `page=0` | página vacía / tope de 200 / página 1 |
+| Búsqueda | `desde=ayer` / `page=dos` | `INVALID_DATE` en el sobre / `422` sin repetir el valor |
+| Papelera | `DELETE /fotos/{id}` (Onset) | la fila **no** se borra: `eliminada`, fecha y quién lo hizo |
+| Papelera | restaurar una foto que no está en la papelera / una que sí | `NOT_DELETED` / vuelve a la galería |
+| Papelera | papelera con rol Usuario / con Director / restaurar como Administrador | `403` / solo lo eliminado / `403` |
+| Papelera | `DELETE /fotos/{id}/definitivo` | pide a MinIO borrar el archivo **y** borra la fila |
+| Columnas | personaje con nombre de 46 / código de 31 caracteres (POST y PATCH) | `422` con el campo que falla; 45 y 30 caben justo |
+
+### Hallazgo (corregido esta semana)
+
+> 🔎 **Hallazgo:** `personajes.nombre` es `varchar(45)` y `codigo_personaje` `varchar(30)`, pero `CharacterSchema` no limitaba la longitud. Un nombre de 46 caracteres pasaba la validación del API, PostgreSQL lo rechazaba al guardar (*value too long*) y la persona recibía un `500` genérico, sin saber qué campo estaba mal. **Corregido** en `character_schema.py`: `max_length` igual al de la columna, así que ahora responde `422` con `loc: ["body", "nombre"]`. Tests: `test_create_character_with_a_name_longer_than_the_column_responds_422`, `…code_longer…`, `…patch…` y `test_character_schema_limits_match_the_database_columns` (si cambia la columna, el schema debe cambiar con ella). Antes de corregir, los 3 primeros estaban en rojo y el de los valores límite (45 y 30) en verde.
+
+### Observaciones (no son defectos corregidos esta semana)
+
+- Los bloqueos de negocio (`CHARACTER_HAS_ACTORS`, `SHOOTING_DAY_IN_USE`, `NOT_DELETED`, `INVALID_DATE`) responden **HTTP 200** con `success: false`. Es el contrato que usa el frontend (`api_client.dart` lanza `ApiException` cuando `success == false`), así que los tests lo fijan tal cual; cambiarlo a `409` exigiría cambiar también el cliente.
+- `personajes.codigo_personaje` no es único: dos personajes del mismo proyecto pueden compartir código. El frontend usa ese código para asociar fotos (`personaje_codigo`). Pendiente de decidir con el grupo si se agrega una restricción única por proyecto.
+- `DELETE /fotos/{id}/definitivo` no exige que la foto esté en la papelera (el comentario del controlador lo deja así a propósito).
+
+### Mutantes (todos detectados)
+
+| Mutante | Test que lo detectó |
+|---|---|
+| `gallery_photo_controller.restore_photo`: `if not photo.eliminada:` → `if False:` | `test_restoring_a_photo_that_is_not_in_the_recycle_bin_is_rejected` |
+| `gallery_photo_controller.delete_photo`: quitar `photo.eliminada = True` | `test_deleting_a_photo_moves_it_to_the_recycle_bin_without_deleting_the_row` |
+| `gallery_photo_controller.search_photos`: quitar el tope `min(page_size, MAX_PAGE_SIZE)` | `test_photo_search_caps_the_page_size_at_200` |
+| `shooting_day_controller.delete_shooting_day`: `scenes_count > 0` → `> 5` | `test_delete_shooting_day_with_scheduled_scenes_is_blocked` |
+| `permissions.py`: `manage_recycle_bin` del Administrador → `True` | `test_administrator_can_view_but_not_manage_the_recycle_bin` |
+| `character_schema.py`: quitar `max_length` | los 3 tests de longitud (estaban en rojo antes de la corrección) |
+
+### Cobertura de cierre con mis tests
+
+Backend: **63,91 %** (498 tests; antes 62,70 %). Umbral `fail_under` 62 → **63**.
 
 ## Cómo correrlo
 

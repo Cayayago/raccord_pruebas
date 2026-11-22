@@ -60,6 +60,20 @@ Archivo: `raccord_backend/api_usuarios/tests/test_api_seguridad.py` (16 tests).
 | Volver al `error=str(e)` original del registro | `test_register_duplicate_document_does_not_expose_sql` |
 | Quitar el manejador de `RequestValidationError` | `test_malformed_json…` y `test_validation_error_does_not_echo…` |
 
+### Frontend al 50 % (parte de Deiver)
+
+El frontend cerraba la S3 en 43,80 %. Para pasar el piso de 50 % se agregaron tests de lógica en Dart puro (sin pantallas), todos con `MockClient`, sin red:
+
+| Archivo | Qué prueba |
+|---|---|
+| `test/core/api_client_test.dart` | Sobre `{success, data}`, cabecera Bearer, errores 401/422/502, descarga de bytes y subida multipart |
+| `test/services/services_test.dart` | Qué pide cada servicio y cómo interpreta la respuesta (login, 2FA, proyectos, escenas, galería, accesos, roles) |
+| `test/core/session_test.dart` | Rol por proyecto, sesión que sobrevive al reinicio, logout y `PlanChangeTracker` |
+| `test/core/invite_helpers_test.dart`, `test/core/bulk_import_test.dart` | Carga masiva CSV/JSON fila por fila (`parseBulkJson`/`parseBulkCsv` con `@visibleForTesting`) |
+| `test/models/models_test.dart` | JSON ↔ modelos; hallazgo "anochecer no existe en la BD" marcado con `skip` |
+
+Resultado en el CI del PR #7: **118 tests, frontend 63,65 %**, backend 62,70 %. Umbrales: `coverage_threshold.txt` = 63, `fail_under` = 62.
+
 ## Javier — ángulo BD (propuesta)
 
 Endpoints cuya respuesta depende de lo guardado, con el `FakeSession`:

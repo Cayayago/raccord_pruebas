@@ -3,3 +3,5 @@ pytest>=8
 pytest-cov>=5
 # TestClient de FastAPI/Starlette (pruebas de API, semana 4)
 httpx2>=2
+# Dobles con mocker (semana 5)
+pytest-mock>=3

@@ -20,4 +20,6 @@ omit = [
 # Semana 5: piso 60, real 64.59 % (508 tests) -> 64. Nunca bajar.
 # Semana 6: piso 70, real 70.35 % (570 tests: reglas de actores y desglose + hallazgos
 # de la BD real) -> 70. Nunca bajar.
-fail_under = 70
+# Semana 7: piso 75, real 75.10 % (632 tests: notificaciones, proyectos y departamentos)
+# -> 75. Nunca bajar.
+fail_under = 75

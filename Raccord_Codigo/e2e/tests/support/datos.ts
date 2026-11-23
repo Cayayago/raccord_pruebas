@@ -1,4 +1,4 @@
-import { APIRequestContext, expect } from '@playwright/test';
+import { APIRequestContext, expect, request as playwrightRequest } from '@playwright/test';
 
 /** Dominio aceptado por la validación de correo (".test" lo rechaza). */
 const DOMINIO = 'raccord-e2e.com';
@@ -79,4 +79,15 @@ export async function crearProyecto(request: APIRequestContext, empresa: Empresa
   expect(res.status(), `proyecto: ${cuerpo.message}`).toBe(200);
   expect(cuerpo.success, cuerpo.message).toBe(true);
   return { idProject: cuerpo.data.id_project as string, nombre: cuerpo.data.project_name as string };
+}
+
+/** URL del backend de pruebas (misma regla que playwright.config.js). */
+export const API_URL = (process.env.API_URL ?? 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
+
+/**
+ * Contexto de API para los tests de UI: su `request` por defecto apunta al
+ * frontend (8081), no al backend, así que el Arrange por API necesita el suyo.
+ */
+export async function contextoApi(): Promise<APIRequestContext> {
+  return playwrightRequest.newContext({ baseURL: API_URL });
 }

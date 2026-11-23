@@ -32,7 +32,7 @@ pnpm exec playwright test --repeat-each=5   # estabilidad
 pnpm report                        # reporte HTML (trazas en los reintentos)
 ```
 
-Si el puerto 8000 está ocupado, Playwright falla a propósito en lugar de reutilizar ese backend: así nunca se prueba por error contra desarrollo.
+Si el puerto 8000 está ocupado, Playwright falla a propósito en lugar de reutilizar ese backend: así nunca se prueba por error contra desarrollo. Con `docker ps` verás quién lo ocupa: además de `backend`, puede ser `raccord-lb` (el balanceador de la prueba de escalado); se libera con `docker stop raccord-lb` y se vuelve a encender con `docker start raccord-lb`. En Windows, si una corrida anterior quedó colgada, puede quedar un `uvicorn` vivo: ciérralo antes de repetir.
 
 Resultados: `playwright-report/` (HTML) y `results/junit.xml`.
 

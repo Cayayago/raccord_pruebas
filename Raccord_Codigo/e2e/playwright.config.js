@@ -3,7 +3,9 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const API = process.env.API_URL ?? 'http://localhost:8000';
+// 127.0.0.1 y no "localhost": en Windows localhost puede resolver a IPv6 (::1) y
+// uvicorn escucha en IPv4, con lo que Playwright nunca lograba conectarse.
+const API = (process.env.API_URL ?? 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
 const WEB = process.env.WEB_URL ?? 'http://localhost:8081';
 
 // Semana 7 — la suite corre contra la BD de PRUEBAS (semana 6), nunca contra la
@@ -35,9 +37,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'python -m uvicorn app.main:app --port 8000',
+    command: 'python -m uvicorn app.main:app --host 127.0.0.1 --port 8000',
     cwd: '../raccord_backend/api_usuarios',
-    url: `${API}/docs`,
+    // Se espera a que el puerto acepte conexiones (no a una ruta HTTP concreta).
+    port: 8000,
     reuseExistingServer: false,
     timeout: 60_000,
     env: {

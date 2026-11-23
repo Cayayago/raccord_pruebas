@@ -50,6 +50,11 @@ class FakeQuery:
     def scalar(self):
         return self.first()
 
+    # Semana 7: Column.in_(subconsulta) itera el objeto que recibe; el fake se
+    # comporta como la lista de sus resultados.
+    def __iter__(self):
+        return iter(self.all())
+
     def count(self):
         return len(self.all())
 

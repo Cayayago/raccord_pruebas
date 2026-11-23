@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { escribirEn } from '../support/campos';
 import { abrirLogin, campo } from './flutter';
 
 // Semana 1 — E2E de los flujos de autenticación (Flutter Web).
@@ -15,8 +16,8 @@ test.describe('UI — autenticación', () => {
     await abrirLogin(page);
     const correo = `noexiste.${Date.now()}@raccord.test`;
     // Act
-    await campo(page, 'E-mail').fill(correo);
-    await campo(page, 'Contraseña').fill('Incorrecta123!');
+    await escribirEn(page, campo(page, 'E-mail'), correo);
+    await escribirEn(page, campo(page, 'Contraseña'), 'Incorrecta123!');
     // La petición termina bien (200) o falla (p. ej. 429 por rate limit, sin CORS):
     // en ambos casos el usuario no debe entrar.
     const esLogin = (r: { url(): string; method(): string }) =>
@@ -38,8 +39,8 @@ test.describe('UI — autenticación', () => {
     // Arrange
     await abrirLogin(page);
     // Act
-    await campo(page, 'E-mail').fill(MAIL!);
-    await campo(page, 'Contraseña').fill(PASS!);
+    await escribirEn(page, campo(page, 'E-mail'), MAIL!);
+    await escribirEn(page, campo(page, 'Contraseña'), PASS!);
     await page.getByRole('button', { name: 'Ingresar' }).click();
     // Assert
     await expect(page).toHaveURL(/#\/proyectos/);

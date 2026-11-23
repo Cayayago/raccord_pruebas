@@ -376,6 +376,9 @@ class _CharacterFormSheetState extends State<_CharacterFormSheet> {
   String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null;
 
   Future<void> _submit() async {
+    // Hallazgo S7: un doble clic en Guardar enviaba dos POST y creaba el personaje
+    // dos veces (el botón se deshabilita en el siguiente cuadro, no al instante).
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     final session = context.read<AuthSession>();

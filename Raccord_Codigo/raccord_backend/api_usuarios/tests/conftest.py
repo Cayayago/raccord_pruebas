@@ -80,3 +80,46 @@ def api():
         yield _Api(TestClient(app, raise_server_exceptions=False), sesion)
     finally:
         app.dependency_overrides.clear()
+
+
+# ==========================================
+# Semana 6 — Integración con la BD real
+# ==========================================
+# La conexión llega SOLO por DATABASE_URL: no hay credenciales en los tests.
+# Sin esa variable los tests de integración se saltan, así que el CI actual
+# (que no tiene BD) sigue en verde. Se rechaza cualquier BD cuyo nombre no
+# termine en "_test" para no correr nunca contra la de desarrollo.
+@pytest.fixture(scope="session")
+def db_engine():
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        pytest.skip("necesita DATABASE_URL (BD de pruebas, ver README sección 9)")
+    from sqlalchemy.engine import make_url
+
+    nombre = make_url(url).database or ""
+    if not nombre.endswith("_test"):
+        pytest.fail(f"DATABASE_URL apunta a '{nombre}': solo se permite una BD que termine en _test")
+    engine = create_engine(url)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture()
+def db_session(db_engine):
+    """Sesión real de PostgreSQL que se deshace al final de cada test.
+
+    Estrategia de limpieza: ROLLBACK. Todo el test ocurre dentro de una
+    transacción que nunca se confirma. Con join_transaction_mode=
+    "create_savepoint", los commit() del código bajo prueba confirman un
+    savepoint y no la transacción del test, así que igual se deshacen.
+    """
+    from sqlalchemy.orm import Session
+
+    with db_engine.connect() as connection:
+        transaction = connection.begin()
+        session = Session(bind=connection, join_transaction_mode="create_savepoint")
+        try:
+            yield session
+        finally:
+            session.close()
+            transaction.rollback()

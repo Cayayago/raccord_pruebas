@@ -66,6 +66,19 @@ Archivo: `e2e/tests/ui/estados-dificiles.spec.ts` (4 tests). La app Flutter corr
 
 Resultado: 4 de 4 en verde, y 12 de 12 con `--repeat-each=3` (`pnpm exec playwright test --project=ui estados-dificiles`). No necesitan backend: solo el frontend en `localhost:8081`.
 
+### Mutante (detectado)
+
+En `raccord_flutter/lib/screens/auth/login_register_screen.dart`, línea 212, se cambió el `catch (e)` general de `_submit` por `on FormatException catch (e)` (quitar el manejo del error de red). Se construyó la imagen del frontend con ese cambio, se sirvió en el puerto 8083 y se corrieron los tests con `WEB_URL=http://localhost:8083`.
+
+| Test | Resultado con el mutante |
+|---|---|
+| `API caído: avisa que no hay conexión…` | **Falla**: la excepción de red ya no se atrapa y no aparece el mensaje `No fue posible conectar con el servidor` |
+| `500 sin JSON`, `422 de validación`, `lista vacía` | Pasan: esos casos llegan como `ApiException`, que tiene su propio `catch`; sirven de control de que la imagen está bien |
+
+Se revirtió la línea y se eliminó la imagen del mutante.
+
+Mutación que **no** se detectaría (para el vocero): cambiar `kApiRequestTimeout` (8 s) por un valor mucho mayor. Los tests simulan la falla al instante con `route.abort`, nunca esperan el tiempo límite; para detectarla habría que simular una respuesta que no llega, con `route.fulfill` retrasado, y comprobar que el error aparece pasados 8 s.
+
 ### Observaciones
 
 - **El helper `campo(page, 'E-mail')` de `tests/ui/flutter.ts` quedó desactualizado.** Flutter ahora nombra el campo por su hint (`Ingresa tu correo`) y la etiqueta queda como texto suelto, así que el `getByRole('group', { name: 'E-mail' })` ya no lo encuentra. Estos tests localizan los campos por su nombre actual y no tocan el helper compartido.

@@ -13,7 +13,7 @@ import { type Empresa } from './datos';
 export async function abrirConSesion(
   page: Page,
   empresa: Empresa,
-  proyecto: { idProject: string; nombre: string },
+  proyecto: { idProject: string; nombre: string } | null,
   ruta: string,
   rol = 1001,
 ) {
@@ -25,9 +25,13 @@ export async function abrirConSesion(
     raccord_user_mail: empresa.mail,
     raccord_user_rol: rol,
     raccord_user_client: empresa.idCliente,
-    raccord_project_id: proyecto.idProject,
-    raccord_project_name: proyecto.nombre,
-    raccord_project_rol: rol,
+    // Con `proyecto: null` la persona llega sin proyecto activo, como justo
+    // después de iniciar sesión, y debe elegirlo en "Gestión de Proyectos".
+    ...(proyecto && {
+      raccord_project_id: proyecto.idProject,
+      raccord_project_name: proyecto.nombre,
+      raccord_project_rol: rol,
+    }),
     // Sin esto, el primer ingreso muestra el recorrido guiado obligatorio.
     [`registration_date_${empresa.idUser}`]: new Date().toISOString(),
     [`has_completed_tour_dashboard_${empresa.idUser}`]: true,

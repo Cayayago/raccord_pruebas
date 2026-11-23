@@ -81,6 +81,10 @@ class _ProjectFormContentState extends State<ProjectFormContent> {
   }
 
   Future<void> _submit() async {
+    // Hallazgo S7: `onPressed: _loading ? null : _submit` no basta; un doble clic
+    // dispara dos veces el callback antes de que Flutter redibuje el botón
+    // deshabilitado, y se creaban DOS proyectos iguales.
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
     if (_formato == null || _genero == null) {
       ScaffoldMessenger.of(context).showSnackBar(

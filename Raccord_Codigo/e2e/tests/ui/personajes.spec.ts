@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { escribirEnDialogo } from '../support/campos';
 import { abrirConSesion } from '../support/sesion-ui';
 import { auth, contextoApi, crearEmpresa, crearProyecto, unico, type Empresa } from '../support/datos';
 
@@ -42,16 +43,7 @@ const HINT = { codigo: 'Ej: P001, P002', nombre: 'Nombre del personaje', edad: '
  * Si algo no se cumple, se repite el campo entero (seleccionar todo y escribir)
  * dentro de toPass: reintenta hasta cumplirse, sin pausas fijas.
  */
-async function escribir(page: Page, posicion: number, hint: string, texto: string) {
-  const campo = page.getByRole('dialog').getByRole('textbox').nth(posicion);
-  await expect(async () => {
-    await campo.click();
-    await page.keyboard.press('ControlOrMeta+A');
-    await page.keyboard.type(texto);
-    await expect(campo).toHaveValue(texto, { timeout: 1_000 });
-    await expect(page.getByRole('textbox', { name: hint })).toHaveCount(0, { timeout: 1_000 });
-  }).toPass({ timeout: 15_000 });
-}
+const escribir = escribirEnDialogo;
 
 async function llenarFormulario(page: Page, datos: { codigo: string; nombre: string; edad: string }) {
   await escribir(page, 0, HINT.codigo, datos.codigo);

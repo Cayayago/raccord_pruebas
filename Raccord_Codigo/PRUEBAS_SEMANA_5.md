@@ -51,11 +51,26 @@ Mutación que **no** se detectaría (para el vocero): cambiar el texto `"Error a
 
 `test_smtp_notifier_delegates_to_the_mail_module` es el más cercano a "solo verificar el mock": se deja porque el adaptador no tiene otra lógica, pero no se agregan más de ese estilo. Los demás verifican la respuesta del API o lo que quedó guardado, no solo el doble.
 
-## Javier — propuesta
+## Javier — capa E2E: estados difíciles con `page.route`
 
-Capa distinta a la de S4 (BD). El grupo aún debe:
-- **E2E con `page.route`** (mínimo 2): API caído y lista vacía en la carpeta `e2e/`.
-- O **Front**: `ApiClient` con respuesta no JSON y 500 (lo que en React se hace con MSW, en Flutter es `MockClient`).
+Archivo: `e2e/tests/ui/estados-dificiles.spec.ts` (4 tests). La app Flutter corre de verdad en el navegador; `page.route` intercepta la petición **antes** de que salga y responde lo que el test decida.
+
+| Test | Doble | Verifica |
+|---|---|---|
+| `API caído: avisa que no hay conexión, no intenta el login y no entra` | Stub de falla (`route.abort`) + Spy (contador de llamadas) | **Comportamiento**: se intentó el chequeo una vez y `/users/login` nunca. **Estado**: sigue en el login |
+| `500 sin JSON: muestra el código HTTP…` | Stub (`route.fulfill` con HTML) | Mensaje `Error de conexión con el servidor (500)` y no entra |
+| `422 de validación: muestra el mensaje del campo…` | Stub con la forma de Pydantic | Se ve el `msg` del primer error y no el JSON crudo |
+| `lista vacía: una persona sin proyectos ve el aviso…` | Stubs del login + Spy de `/users/*/projects` | **Estado**: llega a `#/proyectos` y muestra `Todavía no tienes proyectos asignados.`. **Comportamiento**: pidió la lista una sola vez |
+
+¿Qué pasaría con el backend real? No hay forma de tumbar el API a voluntad, ni de que devuelva un 500 sin JSON, ni de garantizar un usuario sin proyectos sin tocar la base de datos de pruebas.
+
+Resultado: 4 de 4 en verde, y 12 de 12 con `--repeat-each=3` (`pnpm exec playwright test --project=ui estados-dificiles`). No necesitan backend: solo el frontend en `localhost:8081`.
+
+### Observaciones
+
+- **El helper `campo(page, 'E-mail')` de `tests/ui/flutter.ts` quedó desactualizado.** Flutter ahora nombra el campo por su hint (`Ingresa tu correo`) y la etiqueta queda como texto suelto, así que el `getByRole('group', { name: 'E-mail' })` ya no lo encuentra. Estos tests localizan los campos por su nombre actual y no tocan el helper compartido.
+- **`fill` no es confiable con los campos de Flutter:** a veces el texto no llega al controlador y el formulario se frena en la validación local. Los tests hacen clic y escriben con el teclado.
+- **La app pide `GET /users/{id}/projects` dos veces al entrar a Proyectos.** El test solo verifica que todas las llamadas vayan a la URL del usuario correcto y no fija el número. Queda para revisar si es una petición repetida innecesaria.
 
 ## Cómo correrlo
 

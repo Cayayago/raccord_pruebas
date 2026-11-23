@@ -377,3 +377,28 @@ El resultado queda en `build/web/`.
 - **Correo:** SMTP directo contra Gmail (STARTTLS) para recuperación de contraseña, 2FA, invitaciones, bienvenida y el formulario de contacto de la landing.
 - **Landing separada de la app:** `Landing_pages/` (marketing, público, sin login) y `raccord_flutter/` (la app, autenticada) son dos despliegues independientes que solo se tocan en dos puntos: el botón "Ingresar" de la landing enlaza a `/login` de la app, y el formulario de contacto de la landing llama a `POST /contact` del mismo backend que usa la app. Ningún dato de sesión ni de proyecto se comparte entre ambas.
 - **Endpoint de contacto sin autenticación:** `POST /contact` es el único endpoint público del backend (lo llama cualquier visitante de la landing, sin login). Por eso valida el formato del correo (`EmailStr`), limita la longitud de todos los campos, y descarta en silencio los envíos que llenan un campo honeypot oculto (spam automatizado) sin delatarle al bot que fue bloqueado.
+
+
+---
+
+## 9. Pruebas de integración con la BD real (semana 6)
+
+Los tests de `raccord_backend/api_usuarios/tests/integracion/` corren contra un PostgreSQL de verdad, **aparte del de desarrollo**: otro contenedor (`raccord-db-test`), otro puerto (**5433**) y una BD que termina en `_test`. El esquema se crea aplicando, en orden, las mismas migraciones de producción (`raccord_backend/api_usuarios/sql/0*.sql`). Sin la variable `DATABASE_URL` esos tests se saltan, así que `python -m pytest` y el CI siguen igual que antes.
+
+Los tres comandos (el primero y el último, desde `Raccord_Codigo/`; el segundo, desde `raccord_backend/api_usuarios/`):
+
+```bash
+docker compose -f docker-compose.test.yml up -d --wait
+```
+
+```bash
+DATABASE_URL=postgresql+psycopg2://raccord_test:raccord_test@localhost:5433/raccord_test python -m pytest tests/integracion -v --no-cov
+```
+
+```bash
+docker compose -f docker-compose.test.yml down -v
+```
+
+- **Limpieza entre tests:** rollback. Cada test corre dentro de una transacción que nunca se confirma (fixture `db_session` en `tests/conftest.py`); los `commit()` del código bajo prueba se convierten en savepoints.
+- **Seguridad:** el fixture rechaza cualquier `DATABASE_URL` cuya BD no termine en `_test`.
+- **Prueba de fuego:** `down -v`, `up -d --wait` y la suite dos veces seguidas; las dos corridas deben pasar sin tocar nada.

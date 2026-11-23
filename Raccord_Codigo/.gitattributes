@@ -1,0 +1,3 @@
+# Los scripts de shell se ejecutan dentro de contenedores Linux: deben quedar
+# con saltos de línea Unix aunque se clonen en Windows.
+*.sh text eol=lf

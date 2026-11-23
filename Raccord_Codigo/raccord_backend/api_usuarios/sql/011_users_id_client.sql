@@ -18,7 +18,7 @@
 BEGIN;
 
 ALTER TABLE users
-    ADD COLUMN id_client uuid REFERENCES clients(id_cliente) ON UPDATE CASCADE ON DELETE CASCADE;
+    ADD COLUMN IF NOT EXISTS id_client uuid REFERENCES clients(id_cliente) ON UPDATE CASCADE ON DELETE CASCADE;
 
 -- Backfill para las cuentas de prueba que ya se registraron antes de
 -- este fix (van a tener id_client NULL porque la columna no existía

@@ -218,7 +218,7 @@ def test_get_character_includes_its_actors():
 def test_create_and_list_characters():
     db = FakeSession({Character: [_personaje()]})
 
-    creado = personajes.create_character(CharacterSchema(nombre="JULIÁN", edad=45, codigo_personaje="P002", id_project="proj-A"), db)
+    creado = personajes.create_character(CharacterSchema(nombre="JULIÁN", edad=45, codigo_personaje="P002", id_project="22222222-2222-2222-2222-222222222222"), db)
     lista = personajes.get_characters("proj-A", db)
 
     assert creado["data"]["nombre"] == "JULIÁN"
@@ -229,7 +229,7 @@ def test_update_character_full_does_not_change_project():
     personaje = _personaje()
     db = FakeSession({Character: personaje})
 
-    personajes.update_character_full("per-1", CharacterSchema(nombre="ELENA M", edad=31, codigo_personaje="P001", id_project="otro"), db)
+    personajes.update_character_full("per-1", CharacterSchema(nombre="ELENA M", edad=31, codigo_personaje="P001", id_project="33333333-3333-3333-3333-333333333333"), db)
 
     assert personaje.nombre == "ELENA M"
     assert personaje.id_project == "proj-A"
@@ -249,7 +249,7 @@ def test_update_character_partial_only_changes_sent_fields():
         lambda db: personajes.get_character("x", db),
         lambda db: personajes.delete_character("x", db),
         lambda db: personajes.update_character("x", CharacterUpdateSchema(), db),
-        lambda db: personajes.update_character_full("x", CharacterSchema(nombre="A", edad=1, codigo_personaje="P", id_project="p"), db),
+        lambda db: personajes.update_character_full("x", CharacterSchema(nombre="A", edad=1, codigo_personaje="P", id_project="11111111-1111-1111-1111-111111111111"), db),
     ],
 )
 def test_character_operations_fail_when_character_does_not_exist(accion):

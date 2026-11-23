@@ -85,14 +85,14 @@ def _contar(db, id_project):
     ).scalar()
 
 
-def test_crear_personaje_lo_guarda_en_la_bd_con_id_generado_por_el_trigger(api_bd, db_session):
+def test_crear_personaje_lo_guarda_en_la_bd_con_id_generado_por_la_bd(api_bd, db_session):
     id_user, id_project = _sembrar(db_session, ROL_ADMIN)
 
     r = api_bd.post("/characters", json=_cuerpo(id_project), headers=_headers(id_user, ROL_ADMIN))
 
     assert r.status_code == 200, r.text
     id_personaje = r.json()["data"]["id_personaje"]
-    assert id_personaje.startswith("cast")
+    assert str(uuid.UUID(id_personaje)) == id_personaje  # la BD lo generó como UUID válido
     fila = db_session.execute(
         text("select nombre, edad, codigo_personaje from personajes where id_personaje = :i"),
         {"i": id_personaje},

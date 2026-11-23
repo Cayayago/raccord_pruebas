@@ -35,7 +35,10 @@ export async function crearEmpresa(request: APIRequestContext): Promise<Empresa>
     representante_legal: 'Ana Ruiz',
     email_empresa: `empresa.${id}@${DOMINIO}`,
     document: 'NIT',
-    id_document: `9${Date.now().toString().slice(-8)}${contador}`,
+    // Numérico (es un NIT) y con el pid del worker: con --repeat-each dos workers
+    // podían generar el mismo valor en el mismo milisegundo y chocar ("Ya existe
+    // una cuenta con ese documento").
+    id_document: `9${process.pid}${Date.now().toString().slice(-7)}${contador}`,
     nombre: 'Ana',
     apellido: 'Ruiz',
     mail: `ana.${id}@${DOMINIO}`,

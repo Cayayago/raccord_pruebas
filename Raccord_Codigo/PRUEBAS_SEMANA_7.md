@@ -4,7 +4,7 @@ Rama: `test/semana-07`. Capa de Javier: **E2E**. Flujos críticos elegidos y por
 
 | Flujo | Responsable | Por qué es crítico |
 |---|---|---|
-| 1. Registro + login | Deiver | Es la puerta de entrada de toda cuenta nueva. |
+| 1. **Registro + login** | Deiver | Es la puerta de entrada de toda cuenta nueva; si falla, nadie empieza a usar Raccord (ver sección 7). |
 | 2. **Personajes** | Javier | Es lo que preproducción usa a diario; un personaje que no se guarda, o se guarda dos veces, contamina escenas, actores y desgloses. |
 | 3. **Proyecto** (crear y abrir) | Javier | Sin proyecto activo no hay guion, escenas ni personajes; abrir el equivocado es trabajar sobre datos ajenos. |
 
@@ -74,10 +74,67 @@ Detalle: la fila **sí** se veía en la pantalla (Playwright compara el nombre a
 | Backend | 70.35 % | **75.14 %** (641 tests) | `fail_under = 75` |
 | Frontend | pendiente | pendiente (Deiver) | ≥ 75 en `coverage_threshold.txt` |
 
-## 7. Pendiente
+## 7. Flujo 1 — Registro + login (Deiver)
 
-- Flujo 1 (Deiver): ≥ 2 E2E de registro/login con la base nueva, doble clic en Registrar/Ingresar, mutante propio y frontend ≥ 75 %.
-- Reconstruir la imagen del frontend y correr con `E2E_FRONT_CORREGIDO=true`.
+Por qué es crítico: es la puerta de entrada. Si falla, ninguna productora nueva puede empezar a usar Raccord, y si deja entrar con una contraseña equivocada, el acceso queda abierto.
+
+Archivo: `e2e/tests/ui/registro-login.spec.ts`. Objeto de página **sin aserciones**: `e2e/tests/support/pantalla-acceso.ts` (abrir, llenar ingreso, ir a registro, llenar registro, enviar y esperar la respuesta).
+
+| Test | Tipo | Qué comprueba |
+|---|---|---|
+| registro por la UI | feliz | llega a "Registrar Proyecto" y la cuenta existe de verdad (login por API) |
+| registro con un correo que ya existe | error visible | la respuesta es `DUPLICATE_USER`, el mensaje se ve y no navega |
+| doble clic en Registrar con la red lenta | Parte 3 | un solo `POST /register` (ver hallazgo 4) |
+| login de una cuenta creada por API | feliz | la respuesta es éxito y llega a `#/proyectos` |
+| login con la contraseña equivocada | error visible | `INVALID_CREDENTIALS`, el mensaje "Verifica tu correo y tu contraseña…" se ve y no entra |
+| doble clic en Ingresar con la red lenta | Parte 3 | un solo `POST /users/login` (ver hallazgo 5) |
+
+- Datos: cada test crea lo que necesita por API (`crearEmpresa`) o con valores únicos (`unico()`); ningún usuario del `.env`.
+- Sin `waitForTimeout`: se espera la respuesta del backend (`waitForResponse`) y la navegación con aserciones web-first. La red lenta se simula con `page.route` (+1,5 s al `POST`).
+- Locators accesibles: pestañas por `tab`, botones por `button`, casilla por `checkbox`. Los campos del registro van **por posición**: en el build web varios no exponen la etiqueta como grupo y su nombre accesible es el hint, que desaparece al escribir; por etiqueta, "Email Empresa" resolvía también "Nº Documento". El formulario no tiene campos condicionales.
+- Flutter Web a veces pierde el texto de un campo cuando el foco no alcanza a moverse (se vio "Apellidos" vacío y Registrar deshabilitado). El objeto de página confirma **todo** el formulario al final y reescribe lo que falte, dentro de `toPass`.
+- Razón social, nombres y apellidos se escriben en minúsculas: el formulario usa `LowerCaseTextFormatter`.
+
+### E2E en el CI (adelanto de la semana 8)
+
+`.github/workflows/e2e.yml` corre el flujo en cada PR que toque `e2e/`, el frontend o el backend:
+
+1. PostgreSQL 18 de pruebas (5433) con el esquema de las migraciones `sql/0*.sql`.
+2. El frontend compilado para web **desde el mismo commit** (`flutter create --platforms=web` genera la plantilla `web/` que el repo no trae) y servido en :8081. Así un arreglo en la app se prueba en el mismo PR, sin reconstruir la imagen Docker (lo que obligaba a usar `test.fail()` en los hallazgos 1 y 2).
+3. Playwright arranca el backend con el `webServer` de `playwright.config.js`.
+4. `--repeat-each=5 --retries=0`: un test intermitente falla en vez de esconderse tras un reintento. Si algo falla, el job imprime el árbol de accesibilidad del momento del fallo.
+
+### Hallazgos (Parte 3)
+
+4. **Doble envío al registrarse.** Con doble clic y la respuesta retrasada 1,5 s salían dos `POST /register`; el segundo respondía "La empresa ya está registrada" mientras el primero ya había navegado. **5 de 5 en rojo** antes del arreglo.
+5. **Doble envío al iniciar sesión.** Dos `POST /users/login` (y dos `/users/2fa/check`). **5 de 5 en rojo** antes del arreglo.
+
+Corrección para los dos: `if (_loading) return;` al inicio de `_submit` en `login_register_screen.dart` (el mismo patrón que Javier corrigió en personajes y proyectos). Después: **5 de 5 en verde**.
+
+Red lenta: con 1,5 s de retraso en login y registro no se perdió nada; el botón muestra el indicador de carga y la app navega al llegar la respuesta.
+
+### Mutante
+
+Se rompió el flujo en la app: en el login, el `catch (ApiException)` dejó de mostrar el mensaje (`_showError(e.message)` → `debugPrint(e.message)`). Se corrió en el CI con un commit aparte y se revirtió en el siguiente.
+
+| Mutante | Resultado |
+|---|---|
+| el login no muestra el error del backend | **detectado 5 de 5** por "login con la contraseña equivocada": `expect(getByText(/Verifica tu correo y tu contraseña/)).toBeVisible()` → *element(s) not found*. Los otros 25 pasaron: solo ese test mira el mensaje, por eso verifica además el código `INVALID_CREDENTIALS` de la respuesta |
+
+### Estabilidad
+
+| Corrida (CI, 2 workers) | Resultado |
+|---|---|
+| Primeras corridas | revelaron los 3 problemas del test (campo ambiguo, minúsculas, campo que perdía el texto), no de la app |
+| Antes del arreglo, `--repeat-each=5` | 20/20 de los 4 tests funcionales; 10/10 en rojo los de doble clic (los hallazgos) |
+| Después del arreglo, `--repeat-each=5 --retries=0` | **30 de 30** |
+
+### Cobertura
+
+Frontend **76,03 %** (umbral 76) y backend **75,44 %** con la capa BD de la S6 incluida (umbral 75). Los dos pasan el piso de la semana.
+
+## 8. Pendiente
+
+- Reconstruir la imagen del frontend y correr personajes y proyectos con `E2E_FRONT_CORREGIDO=true`, o sumarlos al workflow E2E (ya compila el frontend desde el commit).
+- Suite completa en paralelo con `--repeat-each=5` (Parte 4) cuando los tres flujos estén en `main`.
 - Revisión cruzada de los PR.
-
-Comandos: desde `e2e/`, `pnpm exec playwright test tests/ui`. Requiere `docker compose -f docker-compose.test.yml up -d --wait` y el puerto 8000 libre.

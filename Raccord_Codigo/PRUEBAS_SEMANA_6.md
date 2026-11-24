@@ -64,9 +64,60 @@ El curso usa MySQL; el proyecto usa PostgreSQL. Diferencias que aparecieron:
 
 El backend se mide sin `DATABASE_URL` (los tests de integración no suman a la cobertura). Subida con pruebas de reglas reales: `tests/test_actor_controller.py` (tipo, tamaño y vacío de fotos, borrado de archivos, no encontrado) y `tests/test_breakdown_controller.py` (acceso por departamento, no mover ítems a otro proyecto, pendientes por prioridad).
 
-## 7. Pendiente
+## 7. Capa BD (Deiver): la tabla `escenas` contra PostgreSQL real
 
-- Capa BD (Deiver): ≥ 3 tests, hallazgos y mutante propios; revisión cruzada del PR.
+Raccord no tiene capa "repositorio": las consultas viven en `app/controllers/scene_controller.py`, así que ese controlador hace de DAO. Archivo: `tests/integracion/test_bd_escenas.py` (25 tests); reglas unitarias en `tests/test_hallazgos_semana6_bd.py` (40 tests, sin BD).
+
+- **Limpieza:** la misma del grupo, **rollback** (`db_session`). Cada test crea su cliente, proyecto, guion, día de rodaje y desglose con valores únicos (`uuid4`); ningún id fijo.
+- **Conexión:** solo por `DATABASE_URL`; sin ella se saltan.
+
+| Qué se prueba | Tests |
+|---|---|
+| Cada función al menos una vez | crear (fila y defaults en la BD), buscar por id e inexistente, listar por proyecto / guion / día de rodaje / desglose, PATCH parcial, PUT que intenta mover a otro proyecto, borrar |
+| Consultas propias | JOIN escenas → guiones para filtrar por proyecto (ignora otro proyecto); reparto embebido desde `escenas_personajes`; filtros por día y desglose; **orden del guion** en las cuatro listas |
+| Restricciones de la tabla | `NOT NULL` (número y encabezado), `varchar(45)`, rango de `integer`, FK `escenas_id_rodaje_fkey`, `ON DELETE CASCADE` hacia reparto y fotos (el personaje no se borra), borrar el guion borra sus escenas, versión del guion única **por proyecto** |
+
+### Hallazgos de la capa BD (corregidos)
+
+| # | Hallazgo | Antes | Corrección | Test unitario (límite) |
+|---|---|---|---|---|
+| 5 | La versión del guion era `UNIQUE` en **toda** la BD, aunque el código decía "única dentro del proyecto": si otra productora ya tenía un "V2", crear el tuyo fallaba | 500 (`UniqueViolation`) | `sql/035_guiones_version_por_proyecto.sql` (idempotente): `UNIQUE (id_project, numero_de_version)`; modelo con `UniqueConstraint`; `create_script` responde `DUPLICATE_VERSION` si la BD frena un duplicado | `test_create_script_rejected_by_the_unique_constraint…` |
+| 6 | Las listas de escenas se ordenaban por `id_escena` (UUID aleatorio): el API devolvía "2, 10A, 9, 1, 10". El `FakeSession` ignora el `ORDER BY`; el frontend reordena, por eso nadie lo notó | desorden | `ORDEN_GUION`: parte numérica inicial y luego el texto (1, 1B, 2, 3, 11) | integración (es una regla de SQL) |
+| 7 | `POST /scenes` con número de escena de 46 caracteres | 500 (`value too long`) | `max_length=45` | 45 pasa, 46 no |
+| 8 | `pagina` (y `dia_dramatico`, `orden_rodaje`, `bloque_grabacion`) = 3 000 000 000 | 500 (`integer out of range`) | `0 ≤ valor ≤ 2 147 483 647` | 0 y 2 147 483 647 pasan; −1 y 2 147 483 648 no |
+| 9 | `id_rodaje: "abc"` (igual `id_guion`, `id_desglose`) | 500 (cast a `uuid`) | validación de UUID → 422 | `"abc"`, `""`, `"1111"`, UUID + `x` |
+| 10 | `id_rodaje` con formato válido pero inexistente | 500 (FK) | `_guardar()`: rollback y `INVALID_REFERENCE` | sesión fake cuyo `commit` lanza `IntegrityError` |
+| 11 | Número de escena vacío y página negativa | se guardaban | `min_length=1`, `ge=0` | `""` y −1 rechazados |
+
+Los tests unitarios de la S3 usaban ids inventados (`"guion-A"`); ahora son UUID fijos (`GUION_A`, …) porque el schema los valida.
+
+### Mutantes de la capa BD
+
+| Mutación | Resultado |
+|---|---|
+| M1: quitar el `ORDER BY` en `get_scenes` (lista por proyecto) | **Se escapó** al principio: el test del JOIN compara con `sorted()`. Se agregó `test_scenes_by_project_also_come_in_script_order`; ahora las cuatro listas detectan su mutante (el de día de rodaje y desglose se reforzó con 4 escenas, con 2 podía pasar por suerte) |
+| M2: quitar el filtro `Script.id_project == id_project` del JOIN | detectado (`…joins_through_the_script_and_ignores_other_projects`) |
+| M3: quitar `max_length=45` | detectado (2 de integración + 2 unitarios) |
+| M4: no capturar `IntegrityError` al guardar | detectado (`…shooting_day_that_does_not_exist_is_not_a_500` + unitario) |
+| M5: limpieza con `commit` en vez de `rollback` | detectado (`test_la_bd_de_pruebas_empieza_sin_usuarios`) y dejó 18 escenas en la BD: por eso la prueba de fuego empieza de cero |
+
+### PostgreSQL frente a MySQL (capa BD)
+
+- Sin `ORDER BY`, ninguno de los dos garantiza orden; con UUID aleatorio como llave el desorden en PostgreSQL es visible al instante.
+- `substring(texto, '^[0-9]+')` con expresión regular es de PostgreSQL; en MySQL sería `REGEXP_SUBSTR`.
+- `varchar(45)` en PostgreSQL siempre rechaza el valor largo; MySQL sin modo estricto lo **trunca** y guarda.
+- Una restricción `UNIQUE` con nombre se cambia con `DROP CONSTRAINT IF EXISTS` y un bloque `DO $$`; MySQL no tiene `IF NOT EXISTS` para constraints.
+
+### Prueba de fuego (en el entorno de Deiver)
+
+BD borrada y recreada con todas las migraciones (incluida la 035) → `pytest tests/integracion` dos veces seguidas: **31 passed / 31 passed**, y al final `escenas`, `guiones` y `projects` quedan en 0 filas. La 035 se corrió dos veces sin error (idempotente).
+
+### Cobertura
+
+Backend sin `DATABASE_URL`: **70,69 %** (611 tests). Frontend: ver la sección de la capa Front de la semana 6/7.
+
+## 8. Pendiente
+
+- Revisión cruzada: Javier revisa la capa BD; Deiver revisa la capa API.
+- Prueba de fuego en la máquina de quien **no** montó la BD (con Docker: `down -v`, `up -d --wait`, tests dos veces).
 - Frontend ≥ 70 % y su umbral.
-- Prueba de fuego en la máquina de Deiver: `down -v`, `up -d --wait`, tests dos veces seguidas.
-- Fila de la semana 6 en `docs/matriz-rotacion.md`.

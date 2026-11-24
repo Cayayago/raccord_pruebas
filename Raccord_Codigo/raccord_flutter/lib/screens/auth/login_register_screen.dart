@@ -212,7 +212,8 @@ class _LoginFormState extends State<_LoginForm> {
       if (!mounted) return;
       Navigator.of(context).pushNamedAndRemoveUntil('/proyectos', (r) => false);
     } on ApiException catch (e) {
-      _showError(e.message);
+      // MUTANTE semana 7: el login deja de mostrar el error del backend.
+      debugPrint(e.message);
     } catch (e) {
       // OJO: este catch-all agrupa dos causas muy distintas bajo el mismo
       // mensaje genérico: (a) el navegador bloqueó la petición por CORS o

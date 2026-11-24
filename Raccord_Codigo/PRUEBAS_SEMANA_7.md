@@ -131,7 +131,7 @@ Se rompió el flujo en la app: en el login, el `catch (ApiException)` dejó de m
 
 ### Cobertura
 
-Frontend **76,03 %** (umbral 76) y backend **75,44 %** con la capa BD de la S6 incluida (umbral 75). Los dos pasan el piso de la semana.
+Frontend **79,79 %** (161 tests; umbral 79). Al juntar la S6 con la S7 el frontend quedó en 76,00 % exacto, sin margen, porque la S7 trae código nuevo de la app; se agregó `test/widgets/invite_person_dialog_test.dart` (validación, envío, error del backend y cancelar). Backend **75,44 %** con la capa BD de la S6 incluida (umbral 75). Los dos pasan el piso de la semana.
 
 ## 8. Pendiente
 

@@ -30,7 +30,7 @@ Anota la cobertura real al cerrar cada semana. El umbral de la semana siguiente 
 | S4 (con la capa BD) | 63.65 (sin cambios) | 63.91 (todo `app/`, 498 tests) | Frontend 63 · Backend 63 (`pyproject.toml`) |
 | S5 | 63.65 (sin cambios; la S5 no agregó tests de Flutter) | 64.59 (todo `app/`, 508 tests) | Frontend 63 (`coverage_threshold.txt`) · Backend 64 (`pyproject.toml`) — ambos por encima del piso de 60 % |
 | S6 | 76.03 (157 tests; solo archivos que cargan los tests) | 70.69 (todo `app/`, 611 tests, con la capa BD) | Frontend 76 (`coverage_threshold.txt`) · Backend 70 (`pyproject.toml`) — el frontend ya pasa también el piso de la S7 (75 %) |
-| S7 | 76.03 (sin cambios en la S7; ya pasa el piso de 75) | 75.14 (todo `app/`, 641 tests) | Frontend 76 (`coverage_threshold.txt`) · Backend 75 (`pyproject.toml`) |
+| S7 | 79.79 (161 tests; con el diálogo Invitar persona) | 75.44 (todo `app/`, 682 tests, con la capa BD de la S6) | Frontend 79 (`coverage_threshold.txt`) · Backend 75 (`pyproject.toml`) |
 
 > Desde la S2 el backend mide **todo** `app/`; la cifra de la S1 solo contaba los archivos importados y no es comparable. Por eso el umbral pasa de 48 a 35: no es que la cobertura bajara, es que ahora se mide bien.
 

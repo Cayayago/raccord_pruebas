@@ -60,11 +60,11 @@ Future<void> _abrir(WidgetTester tester, {Future<http.Response> Function(http.Re
 Future<void> _llenar(WidgetTester tester) async {
   await tester.enterText(campo('Nombre completo'), 'Ana Ruiz');
   await tester.enterText(campo('Correo electrónico'), 'ana@b.co');
-  await tester.tap(find.text('Selecciona área'));
+  await tester.tap(find.byType(DropdownButtonFormField<String>));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Arte').last);
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Selecciona rol'));
+  await tester.tap(find.byType(DropdownButtonFormField<int>));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Jefe de Departamento').last);
   await tester.pumpAndSettle();

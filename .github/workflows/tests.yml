@@ -49,6 +49,20 @@ jobs:
               elif linea.startswith("LH:"):
                   hit += int(linea[3:])
           pct = 100 * hit / total if total else 0
+          # Detalle por archivo (los que más líneas sin cubrir tienen primero),
+          # para saber dónde conviene escribir el siguiente test.
+          archivos, actual = [], None
+          for linea in open("coverage/lcov.info"):
+              if linea.startswith("SF:"):
+                  actual = [linea[3:].strip(), 0, 0]
+              elif linea.startswith("LF:"):
+                  actual[1] = int(linea[3:])
+              elif linea.startswith("LH:"):
+                  actual[2] = int(linea[3:])
+              elif linea.startswith("end_of_record") and actual:
+                  archivos.append(actual)
+          for nombre, lf, lh in sorted(archivos, key=lambda a: a[2] - a[1]):
+              print(f"  {lh:5d}/{lf:<5d} {100 * lh / lf if lf else 0:6.1f}%  sin cubrir {lf - lh:5d}  {nombre}")
           print(f"Cobertura frontend: {pct:.2f}% (umbral {umbral}%)")
           sys.exit(0 if pct >= umbral else 1)
           EOF

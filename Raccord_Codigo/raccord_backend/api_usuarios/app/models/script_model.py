@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from app.config.database import Base
 
@@ -14,6 +14,9 @@ from app.config.database import Base
 # (que intentaría crear el tipo si la tabla no existe todavía).
 class Script(Base):
     __tablename__ = "guiones"
+    __table_args__ = (
+        UniqueConstraint("id_project", "numero_de_version", name="guiones_proyecto_version_key"),
+    )
 
     id_guion = Column(
         UUID(as_uuid=True),
@@ -22,10 +25,10 @@ class Script(Base):
         default=uuid.uuid4
     )
 
+    # Única por proyecto, no en toda la BD (sql/035_guiones_version_por_proyecto.sql).
     numero_de_version = Column(
         String(45),
-        nullable=False,
-        unique=True
+        nullable=False
     )
 
     fecha_de_emision = Column(

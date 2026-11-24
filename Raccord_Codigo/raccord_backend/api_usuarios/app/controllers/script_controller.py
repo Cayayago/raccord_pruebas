@@ -2,6 +2,7 @@ import logging
 
 from fastapi import HTTPException, UploadFile
 from fastapi.responses import Response
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("raccord")
@@ -113,7 +114,14 @@ def create_script(script: ScriptSchema, db: Session):
     )
 
     db.add(new_script)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Dos peticiones casi al mismo tiempo pueden pasar la consulta de
+        # arriba; la restricción de la BD (única por proyecto) frena la
+        # segunda. Antes eso era un 500 (semana 6).
+        db.rollback()
+        return api_response(False, "Ya existe un guion con ese número de versión", error="DUPLICATE_VERSION")
     db.refresh(new_script)
 
     return api_response(True, "Guion creado", {

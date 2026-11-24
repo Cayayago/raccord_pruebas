@@ -1,3 +1,5 @@
+from sqlalchemy import Integer, cast, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.scene_model import Scene
@@ -60,6 +62,38 @@ def _serialize(s: Scene, cast: list | None = None):
     return data
 
 
+
+# Un id_rodaje / id_desglose / id_guion con formato válido pero que no
+# existe viola la llave foránea al guardar. Antes eso era un 500
+# (semana 6); ahora se deshace y se responde un error claro.
+def _guardar(db: Session):
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return api_response(
+            False,
+            "El guion, día de rodaje o desglose indicado no existe",
+            error="INVALID_REFERENCE",
+        )
+    return None
+
+
+# ==========================================
+# ORDEN DEL GUION
+# ==========================================
+# Hallazgo semana 6 (BD real): las listas se ordenaban por id_escena, que es
+# un UUID aleatorio, así que el API devolvía las escenas en cualquier orden
+# ("2, 10A, 9, 1, 10"). Con el FakeSession el ORDER BY no se ejecuta y nunca
+# se vio. numero_de_escena es texto ("10A"), y ordenarlo como texto da
+# "1, 10, 2": se ordena primero por la parte numérica inicial y luego por el
+# texto completo (1, 2, 9, 10, 10A). substring(texto, patrón) es de PostgreSQL.
+ORDEN_GUION = (
+    cast(func.substring(Scene.numero_de_escena, "^[0-9]+"), Integer).nulls_last(),
+    Scene.numero_de_escena,
+)
+
+
 # ==========================================
 # GET ALL SCENES (de UN proyecto)
 # ==========================================
@@ -71,7 +105,7 @@ def get_scenes(id_project: str, db: Session):
         db.query(Scene)
         .join(Script, Scene.id_guion == Script.id_guion)
         .filter(Script.id_project == id_project)
-        .order_by(Scene.id_escena)
+        .order_by(*ORDEN_GUION)
         .all()
     )
 
@@ -116,7 +150,7 @@ def get_scene(id: str, db: Session):
 # GET SCENES BY SCRIPT (GUION)
 # ==========================================
 def get_scenes_by_script(id_guion: str, db: Session):
-    scenes = db.query(Scene).filter(Scene.id_guion == id_guion).order_by(Scene.id_escena).all()
+    scenes = db.query(Scene).filter(Scene.id_guion == id_guion).order_by(*ORDEN_GUION).all()
     return api_response(True, "Escenas del guion", [_serialize(s) for s in scenes])
 
 
@@ -124,7 +158,7 @@ def get_scenes_by_script(id_guion: str, db: Session):
 # GET SCENES BY SHOOTING DAY (PLAN DE RODAJE)
 # ==========================================
 def get_scenes_by_rodaje(id_rodaje: str, db: Session):
-    scenes = db.query(Scene).filter(Scene.id_rodaje == id_rodaje).order_by(Scene.id_escena).all()
+    scenes = db.query(Scene).filter(Scene.id_rodaje == id_rodaje).order_by(*ORDEN_GUION).all()
     return api_response(True, "Escenas del día de rodaje", [_serialize(s) for s in scenes])
 
 
@@ -132,7 +166,7 @@ def get_scenes_by_rodaje(id_rodaje: str, db: Session):
 # GET SCENES BY BREAKDOWN SHEET (DESGLOSE)
 # ==========================================
 def get_scenes_by_desglose(id_desglose: str, db: Session):
-    scenes = db.query(Scene).filter(Scene.id_desglose == id_desglose).order_by(Scene.id_escena).all()
+    scenes = db.query(Scene).filter(Scene.id_desglose == id_desglose).order_by(*ORDEN_GUION).all()
     return api_response(True, "Escenas del desglose", [_serialize(s) for s in scenes])
 
 
@@ -172,7 +206,9 @@ def create_scene(scene: SceneSchema, db: Session):
     )
 
     db.add(new_scene)
-    db.commit()
+    error = _guardar(db)
+    if error:
+        return error
     db.refresh(new_scene)
 
     return api_response(True, "Escena creada", _serialize(new_scene))
@@ -226,7 +262,9 @@ def update_scene_full(id: str, scene: SceneSchema, db: Session):
     scene_db.bloque_grabacion = scene.bloque_grabacion
     scene_db.comentarios = scene.comentarios
 
-    db.commit()
+    error = _guardar(db)
+    if error:
+        return error
     db.refresh(scene_db)
 
     return api_response(True, "Escena actualizada", _serialize(scene_db))
@@ -261,7 +299,9 @@ def update_scene(id: str, scene, db: Session):
     for key, value in update_data.items():
         setattr(scene_db, key, value)
 
-    db.commit()
+    error = _guardar(db)
+    if error:
+        return error
     db.refresh(scene_db)
 
     return api_response(True, "Escena actualizada", _serialize(scene_db))

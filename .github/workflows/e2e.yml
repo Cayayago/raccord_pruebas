@@ -1,0 +1,112 @@
+# ==========================================
+# E2E en el CI (semana 7, adelanto de la semana 8)
+# ==========================================
+# Corre la suite E2E contra la app de verdad, sin nada instalado a mano:
+#   1. PostgreSQL de pruebas (5433, raccord_test) con el esquema creado por
+#      las migraciones de producción (sql/0*.sql), igual que en la semana 6.
+#   2. El frontend Flutter compilado para web desde ESTE commit (así un
+#      arreglo en la app se prueba en el mismo PR, sin reconstruir imágenes)
+#      y servido en :8081.
+#   3. Playwright arranca el backend por su cuenta (webServer de
+#      playwright.config.js) apuntando a la BD de pruebas.
+# Sin MinIO: el flujo de registro e inicio de sesión no sube archivos, y el
+# arranque del backend solo registra el error de buckets sin caerse.
+name: E2E
+
+on:
+  pull_request:
+    paths:
+      - "Raccord_Codigo/e2e/**"
+      - "Raccord_Codigo/raccord_flutter/lib/**"
+      - "Raccord_Codigo/raccord_backend/**"
+      - ".github/workflows/e2e.yml"
+  workflow_dispatch:
+
+jobs:
+  e2e-registro-login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      db-test:
+        image: postgres:18
+        env:
+          POSTGRES_USER: raccord_test
+          POSTGRES_PASSWORD: raccord_test
+          POSTGRES_DB: raccord_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U raccord_test -d raccord_test"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: Raccord_Codigo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Esquema de la BD de pruebas (migraciones de producción)
+        env:
+          PGPASSWORD: raccord_test
+        run: |
+          for archivo in raccord_backend/api_usuarios/sql/0*.sql; do
+            echo "Aplicando $archivo"
+            tr -d '\r' < "$archivo" | psql -h localhost -p 5433 -U raccord_test -d raccord_test -v ON_ERROR_STOP=1 --quiet
+          done
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: Raccord_Codigo/raccord_backend/api_usuarios/requirements*.txt
+      - run: pip install -r raccord_backend/api_usuarios/requirements.txt
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Compilar el frontend para web
+        working-directory: Raccord_Codigo/raccord_flutter
+        run: |
+          # El repo no trae la carpeta web/: se genera la plantilla estándar.
+          flutter create --platforms=web --project-name raccord .
+          flutter pub get
+          flutter build web --release --pwa-strategy=none --dart-define=API_BASE_URL=http://127.0.0.1:8000
+      - name: Servir el frontend en :8081
+        working-directory: Raccord_Codigo/raccord_flutter/build/web
+        run: nohup python -m http.server 8081 > /tmp/web.log 2>&1 &
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: Raccord_Codigo/e2e/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: Raccord_Codigo/e2e/pnpm-lock.yaml
+      - name: Playwright
+        working-directory: Raccord_Codigo/e2e
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Flujo registro + login (5 repeticiones)
+        working-directory: Raccord_Codigo/e2e
+        env:
+          WEB_URL: http://localhost:8081
+        run: pnpm exec playwright test tests/ui/registro-login.spec.ts --project=ui --repeat-each=5 --retries=0
+
+      - name: Contexto de los fallos (árbol de accesibilidad al fallar)
+        if: failure()
+        working-directory: Raccord_Codigo/e2e
+        run: |
+          for f in $(find test-results -name error-context.md | head -5); do echo "=== $f"; head -80 "$f"; done
+          tail -20 /tmp/web.log || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-e2e
+          path: |
+            Raccord_Codigo/e2e/playwright-report/
+            Raccord_Codigo/e2e/test-results/
+          retention-days: 7

@@ -181,6 +181,10 @@ class _LoginFormState extends State<_LoginForm> {
   }
 
   Future<void> _submit() async {
+    // Hallazgo semana 7 (E2E con doble clic y red lenta): el botón se
+    // deshabilita al redibujar, pero el segundo clic llegaba antes y salían
+    // dos POST /users/login. Si ya hay un envío en curso, se ignora.
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
@@ -548,6 +552,9 @@ class _RegisterFormState extends State<_RegisterForm> {
   String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null;
 
   Future<void> _submit() async {
+    // Mismo hallazgo de la semana 7 que en el login: sin esto, un doble clic
+    // con la red lenta podía mandar dos POST /register.
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
 
     if (_reglasFaltantes.isNotEmpty) {

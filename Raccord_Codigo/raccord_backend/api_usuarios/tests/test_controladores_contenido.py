@@ -27,8 +27,14 @@ from app.schemas.shooting_day_schema import ShootingDaySchema, ShootingDayUpdate
 from tests.fakes import FakeSession, Obj, Seq
 
 
+
+# Semana 6: id_guion se valida como UUID en SceneSchema.
+GUION_A = "00000000-0000-0000-0000-00000000000a"
+GUION_A2 = "00000000-0000-0000-0000-0000000000a2"
+GUION_B = "00000000-0000-0000-0000-00000000000b"
+
 def _escena(**cambios):
-    datos = dict(id_escena="esc-1", numero_de_escena="1", encabezado="INT. CASA - DIA", id_guion="guion-A",
+    datos = dict(id_escena="esc-1", numero_de_escena="1", encabezado="INT. CASA - DIA", id_guion=GUION_A,
                  estado="Pendiente", fecha_de_grabacion=None, hora_inicio_rodaje=None)
     datos.update(cambios)
     return Scene(**datos)
@@ -51,7 +57,7 @@ def test_create_scene_requires_script():
 def test_create_scene_saves_it_as_pending_by_default():
     db = FakeSession()
 
-    resp = escenas.create_scene(SceneSchema(numero_de_escena="1", encabezado="INT. CASA - DIA", id_guion="guion-A"), db)
+    resp = escenas.create_scene(SceneSchema(numero_de_escena="1", encabezado="INT. CASA - DIA", id_guion=GUION_A), db)
 
     assert resp["success"] is True
     assert db.added[0].estado == "Pendiente"
@@ -64,11 +70,11 @@ def test_update_scene_rejects_moving_it_to_a_script_of_another_project():
     db = FakeSession({Scene: escena, Script.id_project: Seq(["proj-A", "proj-B"])})
 
     # Act
-    resp = escenas.update_scene("esc-1", SceneUpdateSchema(id_guion="guion-B"), db)
+    resp = escenas.update_scene("esc-1", SceneUpdateSchema(id_guion=GUION_B), db)
 
     # Assert
     assert resp["error"] == "CROSS_PROJECT_MOVE"
-    assert escena.id_guion == "guion-A"  # no se movió
+    assert escena.id_guion == GUION_A  # no se movió
     assert db.commits == 0
 
 
@@ -76,10 +82,10 @@ def test_update_scene_allows_moving_it_to_another_script_of_the_same_project():
     escena = _escena()
     db = FakeSession({Scene: escena, Script.id_project: Seq(["proj-A", "proj-A"])})
 
-    resp = escenas.update_scene("esc-1", SceneUpdateSchema(id_guion="guion-A2", estado="En proceso"), db)
+    resp = escenas.update_scene("esc-1", SceneUpdateSchema(id_guion=GUION_A2, estado="En proceso"), db)
 
     assert resp["success"] is True
-    assert escena.id_guion == "guion-A2"
+    assert escena.id_guion == GUION_A2
     assert escena.estado == "En proceso"
 
 
@@ -97,7 +103,7 @@ def test_update_scene_full_rejects_cross_project_move_too():
     db = FakeSession({Scene: _escena(), Script.id_project: Seq(["proj-A", "proj-B"])})
 
     resp = escenas.update_scene_full(
-        "esc-1", SceneSchema(numero_de_escena="1", encabezado="X", id_guion="guion-B"), db)
+        "esc-1", SceneSchema(numero_de_escena="1", encabezado="X", id_guion=GUION_B), db)
 
     assert resp["error"] == "CROSS_PROJECT_MOVE"
 
@@ -108,7 +114,7 @@ def test_update_scene_full_keeps_previous_state_when_none_is_sent():
 
     resp = escenas.update_scene_full(
         "esc-1",
-        SceneSchema(numero_de_escena="2", encabezado="EXT. CALLE - NOCHE", id_guion="guion-A", estado=None,
+        SceneSchema(numero_de_escena="2", encabezado="EXT. CALLE - NOCHE", id_guion=GUION_A, estado=None,
                     fecha_de_grabacion=date(2026, 11, 20), hora_inicio_rodaje=time(7, 30)),
         db,
     )

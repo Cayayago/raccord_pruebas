@@ -95,6 +95,13 @@ jobs:
           WEB_URL: http://localhost:8081
         run: pnpm exec playwright test tests/ui/registro-login.spec.ts --project=ui --repeat-each=5 --retries=0
 
+      - name: Contexto de los fallos (árbol de accesibilidad al fallar)
+        if: failure()
+        working-directory: Raccord_Codigo/e2e
+        run: |
+          for f in $(find test-results -name error-context.md | head -5); do echo "=== $f"; head -80 "$f"; done
+          tail -20 /tmp/web.log || true
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

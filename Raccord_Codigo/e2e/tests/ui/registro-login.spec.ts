@@ -89,9 +89,10 @@ test.describe('UI — registro de una productora nueva', () => {
     await pantalla.llenarRegistro({ ...datosNuevos(), mail: existente.mail });
 
     // Act
-    await pantalla.botonRegistrar.click();
+    const respuesta = await pantalla.registrarYEsperarRespuesta();
 
     // Assert: el mensaje del backend llega a la persona y se queda en el formulario
+    expect((await respuesta.json()).error).toBe('DUPLICATE_USER');
     await expect(pantalla.mensaje('El correo del usuario ya está registrado')).toBeVisible();
     await expect(page).not.toHaveURL(/#\/registrar-proyecto/);
     await expect(pantalla.botonRegistrar).toBeVisible();
@@ -137,10 +138,11 @@ test.describe('UI — inicio de sesión', () => {
     await pantalla.abrir();
     await pantalla.llenarIngreso(empresa.mail, 'Equivocada$123');
 
-    // Act
-    await pantalla.botonIngresar.click();
+    // Act: se espera la respuesta para no buscar el mensaje antes de que exista
+    const respuesta = await pantalla.ingresarYEsperarRespuesta();
 
     // Assert: el mensaje del backend (INVALID_CREDENTIALS) se ve y no entra
+    expect((await respuesta.json()).error).toBe('INVALID_CREDENTIALS');
     await expect(pantalla.mensaje(/Verifica tu correo y tu contraseña/)).toBeVisible();
     await expect(page).not.toHaveURL(/#\/proyectos/);
     await expect(pantalla.botonIngresar).toBeVisible();

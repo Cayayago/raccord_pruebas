@@ -1,4 +1,4 @@
-import { type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { abrirApp, campo } from '../ui/flutter';
 import { escribirEn } from './campos';
 
@@ -41,8 +41,27 @@ export class PantallaAcceso {
   }
 
   async llenarIngreso(mail: string, contrasena: string) {
-    await escribirEn(this.page, campo(this.page, 'E-mail'), mail);
-    await escribirEn(this.page, campo(this.page, 'Contraseña'), contrasena);
+    await this.llenarYConfirmar([
+      [campo(this.page, 'E-mail'), mail],
+      [campo(this.page, 'Contraseña'), contrasena],
+    ]);
+  }
+
+  /**
+   * Escribe cada campo y al final confirma TODOS juntos, reescribiendo el que
+   * haya perdido su valor. En el CI se vio que, si Flutter no alcanza a mover
+   * el foco, el texto de un campo cae en el anterior o se pierde (Apellidos
+   * quedaba vacío y Registrar seguía deshabilitado). Sin pausas fijas: toPass
+   * repite hasta que todo el formulario tenga lo que debe.
+   */
+  private async llenarYConfirmar(pares: Array<[Locator, string]>) {
+    for (const [caja, texto] of pares) await escribirEn(this.page, caja, texto);
+    await expect(async () => {
+      for (const [caja, texto] of pares) {
+        if ((await caja.inputValue()) !== texto) await escribirEn(this.page, caja, texto);
+      }
+      for (const [caja, texto] of pares) await expect(caja).toHaveValue(texto, { timeout: 1_000 });
+    }).toPass({ timeout: 30_000 });
   }
 
   async irARegistro() {
@@ -63,18 +82,24 @@ export class PantallaAcceso {
   async llenarRegistro(datos: DatosRegistro) {
     const p = this.page;
     const caja = (posicion: number) => p.getByRole('textbox').nth(posicion);
-    // La razón social se guarda en minúsculas (LowerCaseTextFormatter).
-    await escribirEn(p, caja(0), datos.razonSocial.toLowerCase());
-    await escribirEn(p, caja(1), datos.nit); //            Nº Documento
-    await escribirEn(p, caja(2), datos.emailEmpresa); //   Email Empresa
-    //                    3 = Dirección, 4 = Celular Empresa (opcionales)
-    await escribirEn(p, caja(5), datos.nombres);
-    await escribirEn(p, caja(6), datos.apellidos);
-    await escribirEn(p, caja(7), datos.mail); //           Email Personal
-    await escribirEn(p, caja(8), datos.celular);
-    await escribirEn(p, caja(9), datos.contrasena);
-    await escribirEn(p, caja(10), datos.contrasena); //    Confirmar Contraseña
-    await p.getByRole('checkbox').click();
+    await this.llenarYConfirmar([
+      // Razón social, nombres y apellidos se guardan en minúsculas (LowerCaseTextFormatter).
+      [caja(0), datos.razonSocial.toLowerCase()],
+      [caja(1), datos.nit], //            Nº Documento
+      [caja(2), datos.emailEmpresa], //   Email Empresa
+      //            3 = Dirección, 4 = Celular Empresa (opcionales)
+      [caja(5), datos.nombres],
+      [caja(6), datos.apellidos],
+      [caja(7), datos.mail], //           Email Personal
+      [caja(8), datos.celular],
+      [caja(9), datos.contrasena],
+      [caja(10), datos.contrasena], //    Confirmar Contraseña
+    ]);
+    const terminos = p.getByRole('checkbox');
+    await expect(async () => {
+      if (!(await terminos.isChecked())) await terminos.click();
+      await expect(terminos).toBeChecked({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
   }
 
   /** Hace clic en Ingresar y espera la respuesta del backend (sin pausas fijas). */

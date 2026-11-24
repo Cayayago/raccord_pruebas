@@ -65,6 +65,9 @@ async function retrasarPost(page: Page, ruta: string, ms: number) {
 }
 
 test.describe('UI — registro de una productora nueva', () => {
+  // Llenar y confirmar 9 campos en Flutter Web toma ~20 s en el CI.
+  test.describe.configure({ timeout: 90_000 });
+
   test('el registro por la UI crea la cuenta y lleva a registrar el primer proyecto', async ({ page }) => {
     // Arrange
     const pantalla = new PantallaAcceso(page);

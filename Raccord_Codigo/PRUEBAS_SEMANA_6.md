@@ -114,10 +114,11 @@ BD borrada y recreada con todas las migraciones (incluida la 035) → `pytest te
 
 ### Cobertura
 
-Backend sin `DATABASE_URL`: **70,69 %** (611 tests). Frontend: ver la sección de la capa Front de la semana 6/7.
+Backend sin `DATABASE_URL`: **70,69 %** (611 tests).
+
+Frontend: **76,03 %** (157 tests; antes 63,65 %). Tests de Dart puro con `MockClient` en `test/services/services_extra_test.dart` (galería con búsqueda paginada, escenas, usuarios, notificaciones, departamentos, proyectos y recuperación de contraseña sin token) y `test/widgets/tema_y_estados_test.dart` (tema claro/oscuro, `ThemeController`, vistas de carga/error/vacío, `confirmDelete`). Umbral: `coverage_threshold.txt` = 76. El CI ahora imprime la cobertura **por archivo** para saber dónde escribir el siguiente test.
 
 ## 8. Pendiente
 
 - Revisión cruzada: Javier revisa la capa BD; Deiver revisa la capa API.
 - Prueba de fuego en la máquina de quien **no** montó la BD (con Docker: `down -v`, `up -d --wait`, tests dos veces).
-- Frontend ≥ 70 % y su umbral.

@@ -6,12 +6,15 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:raccord/core/api_config.dart';
+import 'package:raccord/core/api_exception.dart';
 import 'package:raccord/models/catalog.dart';
 import 'package:raccord/models/notification.dart';
 import 'package:raccord/models/scene.dart';
+import 'package:raccord/services/auth_service.dart';
 import 'package:raccord/services/department_service.dart';
 import 'package:raccord/services/gallery_service.dart';
 import 'package:raccord/services/notification_service.dart';
+import 'package:raccord/services/project_service.dart';
 import 'package:raccord/services/scene_service.dart';
 import 'package:raccord/services/user_service.dart';
 
@@ -303,6 +306,77 @@ void main() {
       expect([n.tipoAlcance, n.origen, n.texto, n.tieneFoto, n.leida], [kAlcanceGeneral, kOrigenManual, '', false, false]);
       expect(n.fechaCreacion, isNull);
       expect(n.departamentos, isEmpty);
+    });
+  });
+
+  group('ProjectService', () {
+    Map<String, dynamic> proyecto(String id) =>
+        {'id_project': id, 'project_name': 'Raccord', 'formato_de_produccion': 'Serie', 'genero': 'Drama'};
+
+    test('all y get leen los proyectos', () async {
+      final fake = FakeApi((req) async => req.url.path == '/projects' ? sobre([proyecto('p1')]) : sobre(proyecto('p2')));
+      final servicio = ProjectService(fake.api);
+
+      expect((await servicio.all()).single.idProject, 'p1');
+      expect((await servicio.get('p2')).idProject, 'p2');
+      expect(fake.ultima.url.path, '/projects/p2');
+    });
+
+    test('update manda la causal solo si el proyecto queda suspendido', () async {
+      final fake = FakeApi((_) async => sobre(null));
+      final servicio = ProjectService(fake.api);
+
+      await servicio.update('p1',
+          projectName: 'Raccord', formatoDeProduccion: 'Serie', genero: 'Drama',
+          estado: 'suspendido', causalSuspension: 'Falta de presupuesto');
+      expect(jsonDecode(fake.ultima.body)['causal_suspension'], 'Falta de presupuesto');
+
+      await servicio.update('p1',
+          projectName: 'Raccord', formatoDeProduccion: 'Serie', genero: 'Drama',
+          estado: 'activo', causalSuspension: 'se descarta');
+      final cuerpo = jsonDecode(fake.ultima.body) as Map;
+      expect(fake.ultima.method, 'PATCH');
+      expect(cuerpo['causal_suspension'], isNull);
+      expect(cuerpo['estado'], 'activo');
+    });
+
+    test('delete borra el proyecto', () async {
+      final fake = FakeApi((_) async => sobre(null));
+
+      await ProjectService(fake.api).delete('p1');
+
+      expect([fake.ultima.method, fake.ultima.url.path], ['DELETE', '/projects/p1']);
+    });
+  });
+
+  group('AuthService — recuperar contraseña y 2FA (sin sesión)', () {
+    test('send2faCode, recoverPassword y resetPassword no mandan token', () async {
+      final fake = FakeApi((_) async => sobre(null));
+      final servicio = AuthService(fake.api);
+
+      await servicio.send2faCode('ana@b.co', 'cel-1', 'Clave123*');
+      expect(fake.ultima.url.path, '/users/2fa/send');
+      expect(jsonDecode(fake.ultima.body), {'mail': 'ana@b.co', 'device_id': 'cel-1', 'contrasena': 'Clave123*'});
+
+      await servicio.recoverPassword('ana@b.co');
+      expect(fake.ultima.url.path, '/users/recover-password');
+      expect(jsonDecode(fake.ultima.body), {'mail': 'ana@b.co'});
+
+      await servicio.resetPassword('ana@b.co', '123456', 'Nueva123*');
+      expect(jsonDecode(fake.ultima.body), {'mail': 'ana@b.co', 'codigo': '123456', 'nueva_contrasena': 'Nueva123*'});
+
+      expect(fake.peticiones.every((r) => !r.headers.containsKey('Authorization')), isTrue);
+    });
+
+    test('si el correo de recuperación falla, el error del backend llega a la pantalla', () async {
+      // Contrato con la semana 5 (backend): MAIL_ERROR en vez de un 500.
+      final fake = FakeApi((_) async =>
+          sobre(null, success: false, message: 'Error al enviar correo', error: 'MAIL_ERROR'));
+
+      await expectLater(
+        AuthService(fake.api).recoverPassword('ana@b.co'),
+        throwsA(isA<ApiException>().having((e) => e.errorCode, 'errorCode', 'MAIL_ERROR')),
+      );
     });
   });
 

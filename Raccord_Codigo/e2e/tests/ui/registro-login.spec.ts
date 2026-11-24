@@ -30,8 +30,9 @@ function datosNuevos(): DatosRegistro {
     razonSocial: `Productora UI ${id}`,
     nit: `8${process.pid}${Date.now().toString().slice(-7)}`,
     emailEmpresa: `empresa.ui.${id}@${DOMINIO}`,
-    nombres: 'Deiver',
-    apellidos: 'Prueba',
+    // Nombres y apellidos también se escriben en minúsculas (LowerCaseTextFormatter).
+    nombres: 'deiver',
+    apellidos: 'prueba',
     mail: `deiver.ui.${id}@${DOMINIO}`,
     celular: '3001234567',
     contrasena: 'Clave$egura123',
@@ -73,10 +74,11 @@ test.describe('UI — registro de una productora nueva', () => {
     await pantalla.llenarRegistro(datos);
 
     // Act
-    await pantalla.botonRegistrar.click();
+    const respuesta = await pantalla.registrarYEsperarRespuesta();
 
     // Assert: la persona sigue al paso obligatorio y la cuenta existe de verdad
-    await expect(page).toHaveURL(/#\/registrar-proyecto/);
+    expect((await respuesta.json()).success).toBe(true);
+    await expect(page).toHaveURL(/#\/registrar-proyecto/, { timeout: 15_000 });
     expect(await loginPorApi(datos.mail, datos.contrasena)).toBe(true);
   });
 
@@ -124,11 +126,12 @@ test.describe('UI — inicio de sesión', () => {
     await pantalla.abrir();
     await pantalla.llenarIngreso(empresa.mail, empresa.contrasena);
 
-    // Act
-    await pantalla.botonIngresar.click();
+    // Act: se espera la respuesta del backend (no una pausa fija)
+    const respuesta = await pantalla.ingresarYEsperarRespuesta();
 
     // Assert
-    await expect(page).toHaveURL(/#\/proyectos/);
+    expect((await respuesta.json()).success).toBe(true);
+    await expect(page).toHaveURL(/#\/proyectos/, { timeout: 15_000 });
   });
 
   test('con la contraseña equivocada muestra por qué y no entra', async ({ page }) => {

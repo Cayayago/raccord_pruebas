@@ -130,11 +130,13 @@ jobs:
 
       # Los servicios de GitHub no aceptan argumentos de comando (MinIO necesita
       # "server /data"), así que se arranca como contenedor normal.
+      # La imagen vive en quay.io con versión fija: "minio/minio" ya no se publica en
+      # Docker Hub (el job fallaba con "pull access denied") y "latest" cambiaría solo.
       - name: MinIO de pruebas
         run: |
           docker run -d --name minio-test -p 9100:9000 \
             -e MINIO_ROOT_USER=raccord_test -e MINIO_ROOT_PASSWORD=raccord_test_secret \
-            minio/minio server /data
+            quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
           curl --silent --fail --retry 30 --retry-delay 2 --retry-all-errors http://127.0.0.1:9100/minio/health/live
 
       # Backend: lo arranca Playwright (webServer en playwright.config.js).

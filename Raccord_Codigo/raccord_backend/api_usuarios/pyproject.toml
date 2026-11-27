@@ -22,4 +22,6 @@ omit = [
 # de la BD real) -> 70. Nunca bajar.
 # Semana 7: piso 75, real 75.10 % (632 tests: notificaciones, proyectos y departamentos)
 # -> 75. Nunca bajar.
-fail_under = 75
+# Semana 8: piso 80, real 81.55 % (698 tests: clientes, roles, Crew List, desgloses y
+# login/2FA) -> 80. Nunca bajar.
+fail_under = 80

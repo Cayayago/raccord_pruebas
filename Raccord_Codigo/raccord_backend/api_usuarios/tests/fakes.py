@@ -26,6 +26,10 @@ class FakeQuery:
     def join(self, *args, **kwargs):
         return self
 
+    # Semana 8: Crew List une personas con su departamento (LEFT JOIN).
+    def outerjoin(self, *args, **kwargs):
+        return self
+
     # Paginación (semana 4, capa BD): la búsqueda de fotos pagina con
     # .offset().limit(). El fake corta la lista de resultados igual que lo
     # haría la BD, para poder probar qué página devuelve el endpoint.

@@ -33,7 +33,7 @@ Cachés: pip (backend e integración), Flutter y pnpm (`e2e/pnpm-lock.yaml`).
 | Rojo | `9f652e5e` — `ROJO PROVOCADO` (se rompió una aserción de `proyectos.spec.ts`) | `e2e` en rojo: 1 falló (con reintento #1) y 51 pasaron; `trace.zip` en el reporte |
 | Corrección | `bbf8ad65` — revert | 5 checks en verde, 52 E2E pasan |
 
-Links de los runs: **RELLENAR** (rojo: `https://github.com/Cayayago/raccord_pruebas/actions/runs/…` · verde: `…`).
+Links de los runs: [rojo (tests #47)](https://github.com/Cayayago/raccord_pruebas/actions/runs/45918726844) · [verde tras el revert (tests #48)](https://github.com/Cayayago/raccord_pruebas/actions/runs/45919353486).
 
 ## 4. Backend ≥ 80 %
 
@@ -83,8 +83,7 @@ Lo que queda (18.5 %) se agrupa así; no se cubrió a propósito:
 
 ## 8. Pendiente antes del merge
 
-- Ruleset de `main`: agregar `integration` y `e2e` como obligatorios y probarlo con un PR de test roto (cerrado sin merge).
-- Rellenar los links de la sección 3.
+- ~~Ruleset de `main`~~: hecho. `proteger-main` exige `backend-fastapi`, `frontend-flutter`, `integration` y `e2e`.
 - Revisión de Deiver (otra capa).
 - Este PR trae también los commits de S6/S7 (sus PR siguen abiertos).
 

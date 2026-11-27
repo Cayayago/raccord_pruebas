@@ -1,3 +1,4 @@
+import os
 import time
 from threading import Lock
 
@@ -20,6 +21,15 @@ from fastapi import HTTPException, Request, status
 # Redis o similar. Por ahora el backend corre en un solo proceso
 # (uvicorn, un worker), así que no aplica.
 _attempts: dict[str, list[float]] = {}
+
+
+def e2e_sin_limites() -> bool:
+    """Semana 7: la suite E2E corre en paralelo y desde una sola IP, así que
+    los límites por IP (8 logins/min, 5 registros/5 min) la bloquearían sin que
+    la app falle. Solo se apaga con E2E_DISABLE_RATE_LIMIT=true, que se define
+    ÚNICAMENTE en el arranque del backend de pruebas (e2e/playwright.config.js);
+    ningún .env ni docker-compose de la app lo trae."""
+    return os.getenv("E2E_DISABLE_RATE_LIMIT", "false").lower() == "true"
 _lock = Lock()
 
 
@@ -49,6 +59,8 @@ def rate_limit(key_prefix: str, max_attempts: int, window_seconds: int):
     """
 
     def dependency(request: Request):
+        if e2e_sin_limites():
+            return
         ip = _client_ip(request)
         key = f"{key_prefix}:{ip}"
         now = time.time()

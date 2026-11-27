@@ -38,6 +38,10 @@ def norm_mail(mail: str) -> str:
 
 
 def client_ip(request: Request) -> str:
+    # Semana 7: en el backend E2E no se cuenta por IP (ver rate_limit.e2e_sin_limites);
+    # las reglas por cuenta siguen activas.
+    if os.getenv("E2E_DISABLE_RATE_LIMIT", "false").lower() == "true":
+        return "unknown"
     # Detrás de un proxy (nginx/Caddy en producción) la IP real viene en
     # X-Forwarded-For; solo se confía en ese encabezado si se activa
     # TRUST_PROXY_HEADERS=true (si no, cualquiera podría falsearlo para

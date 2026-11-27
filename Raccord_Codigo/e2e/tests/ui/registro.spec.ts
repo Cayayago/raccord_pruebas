@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { escribirEn } from '../support/campos';
 import { abrirLogin, campo } from './flutter';
 
 // Semana 1 — UI del formulario de REGISTRO (Deiver).
@@ -27,7 +28,8 @@ test.describe('UI — registro de empresa', () => {
     const contrasena = campo(page, 'Contraseña');
 
     // Act: solo minúsculas, menos de 8 caracteres
-    await contrasena.fill('abc');
+    // (con teclado: `fill` pone el valor en el <input> pero Flutter no siempre lo registra)
+    await escribirEn(page, contrasena, 'abc');
 
     // Assert: aparecen las reglas de RF-006 que aún no se cumplen
     await expect(page.getByText('Mínimo 8 caracteres')).toBeVisible();

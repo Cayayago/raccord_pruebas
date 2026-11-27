@@ -54,7 +54,7 @@ test.describe('UI — gestión de proyectos', () => {
 
     await filaDe(page, elegido.nombre).click();
 
-    await expect(page).toHaveURL(/#\/ROJO-PROVOCADO/); // ROJO PROVOCADO S8 (revertir)
+    await expect(page).toHaveURL(/#\/dashboard/);
     // El encabezado del dashboard lleva el nombre del proyecto activo, no el de otro.
     await expect(page.getByRole('banner', { name: elegido.nombre })).toBeVisible();
     const activo = await page.evaluate(() => window.localStorage.getItem('flutter.raccord_project_id'));

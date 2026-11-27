@@ -21,6 +21,8 @@ const WEB = process.env.WEB_URL ?? 'http://localhost:8081';
 // false a propósito, para no probar sin querer contra el backend de desarrollo.
 export default defineConfig({
   testDir: './tests',
+  // Siembra el proyecto y un usuario por rol cuando no hay .env (ver global-setup.ts).
+  globalSetup: './global-setup.ts',
   timeout: 30_000,
   retries: process.env.CI ? 1 : 0,
   // Sin "workers: 1": la suite corre en paralelo. Cada test crea su propia

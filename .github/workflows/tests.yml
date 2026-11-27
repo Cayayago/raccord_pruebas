@@ -94,8 +94,8 @@ jobs:
           retention-days: 7
 
   # Semana 8 — E2E (Playwright). Todo corre en la máquina del job:
-  #   PostgreSQL (servicio) + MinIO (contenedor) + backend (lo levanta Playwright con
-  #   su webServer) + frontend Flutter Web compilado desde este mismo commit.
+  #   PostgreSQL (servicio) + backend (lo levanta Playwright con su webServer) +
+  #   frontend Flutter Web compilado desde este mismo commit.
   # Como el frontend se compila aquí, ya trae las correcciones de la S7
   # (`_loading`): E2E_FRONT_CORREGIDO=true y los tests de doble clic corren normal.
   e2e:
@@ -128,16 +128,12 @@ jobs:
             tr -d '\r' < "$archivo" | psql -v ON_ERROR_STOP=1 --quiet -h localhost -p 5433 -U raccord_test -d raccord_test
           done
 
-      # Los servicios de GitHub no aceptan argumentos de comando (MinIO necesita
-      # "server /data"), así que se arranca como contenedor normal.
-      # La imagen vive en quay.io con versión fija: "minio/minio" ya no se publica en
-      # Docker Hub (el job fallaba con "pull access denied") y "latest" cambiaría solo.
-      - name: MinIO de pruebas
-        run: |
-          docker run -d --name minio-test -p 9100:9000 \
-            -e MINIO_ROOT_USER=raccord_test -e MINIO_ROOT_PASSWORD=raccord_test_secret \
-            quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
-          curl --silent --fail --retry 30 --retry-delay 2 --retry-all-errors http://127.0.0.1:9100/minio/health/live
+      # Sin MinIO en el CI, a propósito: MinIO dejó de publicar su imagen en Docker Hub
+      # ("pull access denied") y la de quay.io responde 401, así que no hay una imagen
+      # estable que fijar. Los flujos E2E actuales (registro, personajes, proyectos) no
+      # suben archivos y el backend tolera que MinIO no esté (ensure_buckets registra el
+      # error y sigue). Si se agrega un E2E de subida de guion o foto, hay que levantar
+      # aquí un almacenamiento S3 compatible.
 
       # Backend: lo arranca Playwright (webServer en playwright.config.js).
       - uses: actions/setup-python@v5
